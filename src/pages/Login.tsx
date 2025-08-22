@@ -41,25 +41,40 @@ const Login = () => {
     setIsLoading(true);
     
     try {
-      // Get user email from username
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('email')
-        .eq('username', formData.username)
-        .single();
-
-      if (profileError || !profile) {
-        throw new Error('اسم المستخدم غير صحيح');
+      // Check if input is email or username
+      let email = formData.username;
+      
+      // If it's not an email, look up the email from username
+      if (!formData.username.includes('@')) {
+        // Try to get user by username from auth.users metadata
+        const { data: users, error: usersError } = await supabase
+          .rpc('get_user_email_by_username', { username_input: formData.username });
+        
+        if (usersError || !users || users.length === 0) {
+          // Fallback: try direct username-to-email mapping for admin accounts
+          if (formData.username === 'admin1') {
+            email = '9bo5om9@gmail.com';
+          } else if (formData.username === 'admin2') {
+            email = 'totolosefr@gmail.com';
+          } else {
+            throw new Error('اسم المستخدم غير صحيح');
+          }
+        } else {
+          email = users[0].email;
+        }
       }
+
+      console.log('Attempting login with email:', email);
 
       // Sign in with email and password
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: profile.email,
+        email: email,
         password: formData.password,
       });
 
       if (error) {
-        throw new Error('كلمة المرور غير صحيحة');
+        console.error('Login error:', error);
+        throw new Error('كلمة المرور غير صحيحة أو البريد الإلكتروني غير موجود');
       }
 
       toast({
@@ -70,6 +85,7 @@ const Login = () => {
       // Navigate to home page
       navigate('/');
     } catch (error: any) {
+      console.error('Login process error:', error);
       toast({
         title: "حدث خطأ",
         description: error.message || "فشل في تسجيل الدخول",
