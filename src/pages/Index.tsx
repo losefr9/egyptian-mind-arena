@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Navbar } from '@/components/ui/navbar';
 import { StatsCards } from '@/components/dashboard/stats-cards';
+import { QuickActions } from '@/components/dashboard/quick-actions';
 import { ActivityFeed } from '@/components/dashboard/activity-feed';
 import { DownloadApp } from '@/components/ui/download-app';
 
@@ -33,6 +34,9 @@ const Index = () => {
               wins={userStats.wins}
               notifications={userStats.notifications}
             />
+
+            {/* الإجراءات السريعة */}
+            <QuickActions />
 
             {/* زر تحميل التطبيق */}
             <DownloadApp />
