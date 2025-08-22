@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { UserPlus, ArrowLeft, Eye, EyeOff, Gamepad2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 const Signup = () => {
   const [formData, setFormData] = useState({
@@ -20,6 +21,7 @@ const Signup = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -53,13 +55,66 @@ const Signup = () => {
     setIsLoading(true);
     
     try {
-      // سيتم تنفيذ إنشاء الحساب مع Supabase Auth لاحقاً
-      console.log('إنشاء حساب جديد...', formData);
-      
+      // Check if username already exists
+      const { data: existingUser, error: checkError } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('username', formData.username)
+        .single();
+
+      if (existingUser) {
+        throw new Error('اسم المستخدم مستخدم بالفعل');
+      }
+
+      // Create auth user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: formData.email || `${formData.username}@efar.local`,
+        password: formData.password,
+        options: {
+          data: {
+            username: formData.username,
+            player_name: formData.playerName,
+            phone: formData.phone
+          },
+          emailRedirectTo: `${window.location.origin}/`
+        }
+      });
+
+      if (authError) throw authError;
+
+      if (authData.user) {
+        // The profile will be created automatically by the trigger
+        // Just wait a moment and then try to fetch it
+        setTimeout(async () => {
+          try {
+            const { data: profile, error } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', authData.user!.id)
+              .single();
+
+            if (!error && profile) {
+              // Update profile with username from form since trigger might not have it
+              await supabase
+                .from('profiles')
+                .update({
+                  username: formData.username
+                })
+                .eq('id', authData.user!.id);
+            }
+          } catch (error) {
+            console.error('Error updating profile:', error);
+          }
+        }, 1000);
+      }
+
       toast({
         title: "تم إنشاء الحساب بنجاح",
         description: "مرحباً بك في منصة E-FAR!"
       });
+
+      // Navigate to home page
+      navigate('/');
     } catch (error: any) {
       toast({
         title: "حدث خطأ",

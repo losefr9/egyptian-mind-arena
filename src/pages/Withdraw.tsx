@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,10 +17,43 @@ const Withdraw = () => {
     account_name: ""
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [userProfile, setUserProfile] = useState<any>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
 
   const quickAmounts = [50, 100, 200, 500];
+
+  useEffect(() => {
+    checkUserAuth();
+  }, []);
+
+  const checkUserAuth = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        toast({
+          title: "يجب تسجيل الدخول",
+          description: "يرجى تسجيل الدخول أولاً للوصول إلى صفحة السحب",
+          variant: "destructive"
+        });
+        navigate('/login');
+        return;
+      }
+
+      // Get user profile
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (error) throw error;
+      setUserProfile(profile);
+    } catch (error: any) {
+      console.error('Error checking auth:', error);
+      navigate('/login');
+    }
+  };
 
   const withdrawalMethods = [
     {
@@ -80,17 +113,11 @@ const Withdraw = () => {
         return;
       }
 
-      // Check user balance (optional - you might want to fetch this)
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('balance')
-        .eq('id', user.id)
-        .single();
-
-      if (profile && profile.balance < parseFloat(amount)) {
+      // Check user balance from the profile we fetched
+      if (userProfile && userProfile.balance < parseFloat(amount)) {
         toast({
           title: "رصيد غير كافي",
-          description: "رصيدك الحالي أقل من المبلغ المطلوب سحبه",
+          description: `رصيدك الحالي ${userProfile.balance.toFixed(2)} ج.م أقل من المبلغ المطلوب سحبه`,
           variant: "destructive"
         });
         setIsLoading(false);
@@ -145,6 +172,12 @@ const Withdraw = () => {
             <ArrowRight className="h-5 w-5" />
           </Button>
           <h1 className="text-3xl font-bold text-primary">سحب الأموال</h1>
+          {userProfile && (
+            <div className="mr-auto">
+              <span className="text-sm text-muted-foreground">الرصيد الحالي: </span>
+              <span className="text-lg font-bold text-success">{userProfile.balance?.toFixed(2) || '0.00'} ج.م</span>
+            </div>
+          )}
         </div>
 
         <Card className="backdrop-blur-sm border-primary/20">

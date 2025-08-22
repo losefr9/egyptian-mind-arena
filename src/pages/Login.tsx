@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { LogIn, ArrowLeft, Eye, EyeOff, Gamepad2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -15,6 +16,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -39,13 +41,34 @@ const Login = () => {
     setIsLoading(true);
     
     try {
-      // سيتم تنفيذ تسجيل الدخول مع Supabase Auth لاحقاً
-      console.log('تسجيل الدخول...', formData);
-      
+      // Get user email from username
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('username', formData.username)
+        .single();
+
+      if (profileError || !profile) {
+        throw new Error('اسم المستخدم غير صحيح');
+      }
+
+      // Sign in with email and password
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: profile.email,
+        password: formData.password,
+      });
+
+      if (error) {
+        throw new Error('كلمة المرور غير صحيحة');
+      }
+
       toast({
         title: "تم تسجيل الدخول بنجاح",
         description: "مرحباً بعودتك إلى E-FAR!"
       });
+
+      // Navigate to home page
+      navigate('/');
     } catch (error: any) {
       toast({
         title: "حدث خطأ",

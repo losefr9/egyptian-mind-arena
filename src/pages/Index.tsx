@@ -1,19 +1,91 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navbar } from '@/components/ui/navbar';
 import { StatsCards } from '@/components/dashboard/stats-cards';
 import { QuickActions } from '@/components/dashboard/quick-actions';
 import { ActivityFeed } from '@/components/dashboard/activity-feed';
 import { DownloadApp } from '@/components/ui/download-app';
+import { supabase } from '@/integrations/supabase/client';
 
 const Index = () => {
-  // محاكاة حالة تسجيل الدخول - سيتم استبدالها بـ Supabase Auth لاحقاً
-  const [isLoggedIn, setIsLoggedIn] = useState(true);
-  const [userStats] = useState({
-    username: "محمد أحمد",
-    balance: 1250.50,
-    wins: 47,
-    notifications: 3
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [userStats, setUserStats] = useState({
+    username: "",
+    balance: 0,
+    wins: 0,
+    notifications: 0
   });
+
+  useEffect(() => {
+    checkUser();
+    
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (session?.user) {
+          setIsLoggedIn(true);
+          fetchUserProfile(session.user.id);
+        } else {
+          setIsLoggedIn(false);
+          setUserStats({
+            username: "",
+            balance: 0,
+            wins: 0,
+            notifications: 0
+          });
+        }
+        setIsLoading(false);
+      }
+    );
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const checkUser = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        setIsLoggedIn(true);
+        await fetchUserProfile(session.user.id);
+      }
+    } catch (error) {
+      console.error('Error checking user:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchUserProfile = async (userId: string) => {
+    try {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('username, balance, wins, losses')
+        .eq('id', userId)
+        .single();
+
+      if (error) throw error;
+
+      setUserStats({
+        username: profile?.username || "مستخدم",
+        balance: profile?.balance || 0,
+        wins: profile?.wins || 0,
+        notifications: 3 // مؤقت
+      });
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 to-secondary/10">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">جاري التحميل...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen" dir="rtl">

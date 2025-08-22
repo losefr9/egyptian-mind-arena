@@ -23,16 +23,19 @@ import { UsersManagement } from '@/components/admin/users-management';
 import { PaymentGateways } from '@/components/admin/payment-gateways';
 import { Statistics } from '@/components/admin/statistics';
 import { Notifications } from '@/components/admin/notifications';
+import { ProtectedRoute } from '@/components/auth/protected-route';
 
 type AdminSection = 'deposits' | 'withdrawals' | 'users' | 'gateways' | 'statistics' | 'notifications';
 
-const Admin = () => {
+const AdminContent = () => {
   const [activeSection, setActiveSection] = useState<AdminSection>('deposits');
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const [adminProfile, setAdminProfile] = useState<any>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  useEffect(() => {
+    fetchAdminProfile();
+  }, []);
 
   const adminSections = [
     {
@@ -79,65 +82,22 @@ const Admin = () => {
     }
   ];
 
-  useEffect(() => {
-    checkAdminAccess();
-  }, []);
-
-  const checkAdminAccess = async () => {
+  const fetchAdminProfile = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        toast({
-          title: "غير مصرح",
-          description: "يجب تسجيل الدخول أولاً",
-          variant: "destructive"
-        });
-        navigate('/login');
-        return;
+      if (user) {
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (!error && profile) {
+          setAdminProfile(profile);
+        }
       }
-
-      // Check if user has admin role
-      const { data: userRoles, error: roleError } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id);
-
-      if (roleError) throw roleError;
-
-      const hasAdminRole = userRoles?.some((role: any) => role.role === 'admin');
-      
-      if (!hasAdminRole) {
-        toast({
-          title: "غير مصرح",
-          description: "ليس لديك صلاحيات للوصول إلى لوحة الإدارة",
-          variant: "destructive"
-        });
-        navigate('/');
-        return;
-      }
-
-      // Get profile separately
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (profileError) throw profileError;
-
-      setAdminProfile(profile);
-      setIsAdmin(true);
-    } catch (error: any) {
-      console.error('Error checking admin access:', error);
-      toast({
-        title: "خطأ",
-        description: "فشل في التحقق من صلاحيات الإدارة",
-        variant: "destructive"
-      });
-      navigate('/');
-    } finally {
-      setIsLoading(false);
+    } catch (error) {
+      console.error('Error fetching admin profile:', error);
     }
   };
 
@@ -172,23 +132,6 @@ const Admin = () => {
         return <DepositsRequests />;
     }
   };
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 to-secondary/10">
-        <Card className="p-8">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">جاري التحقق من الصلاحيات...</p>
-          </div>
-        </Card>
-      </div>
-    );
-  }
-
-  if (!isAdmin) {
-    return null;
-  }
 
   const activeTab = adminSections.find(section => section.id === activeSection);
 
@@ -276,6 +219,14 @@ const Admin = () => {
         {renderActiveSection()}
       </main>
     </div>
+  );
+};
+
+const Admin = () => {
+  return (
+    <ProtectedRoute requireAdmin={true}>
+      <AdminContent />
+    </ProtectedRoute>
   );
 };
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,18 +7,55 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Upload, ArrowRight, ArrowLeft } from "lucide-react";
+import { Upload, ArrowRight, ArrowLeft, ImageIcon, CheckCircle } from "lucide-react";
 
 const Deposit = () => {
   const [amount, setAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
   const [senderNumber, setSenderNumber] = useState("");
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userProfile, setUserProfile] = useState<any>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
 
   const quickAmounts = [50, 100, 200, 500];
+
+  useEffect(() => {
+    checkUserAuth();
+  }, []);
+
+  const checkUserAuth = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        toast({
+          title: "يجب تسجيل الدخول",
+          description: "يرجى تسجيل الدخول أولاً للوصول إلى صفحة الإيداع",
+          variant: "destructive"
+        });
+        navigate('/login');
+        return;
+      }
+
+      setIsLoggedIn(true);
+      
+      // Get user profile
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (error) throw error;
+      setUserProfile(profile);
+    } catch (error: any) {
+      console.error('Error checking auth:', error);
+      navigate('/login');
+    }
+  };
 
   const paymentMethods = [
     {
@@ -54,7 +91,34 @@ const Deposit = () => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "خطأ في نوع الملف",
+          description: "يرجى اختيار صورة فقط",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Validate file size (5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "حجم الملف كبير",
+          description: "يجب أن يكون حجم الصورة أقل من 5 ميجابايت",
+          variant: "destructive"
+        });
+        return;
+      }
+
       setReceiptFile(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setReceiptPreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -137,6 +201,7 @@ const Deposit = () => {
       setPaymentMethod("");
       setSenderNumber("");
       setReceiptFile(null);
+      setReceiptPreview(null);
       
     } catch (error: any) {
       toast({
@@ -266,29 +331,61 @@ const Deposit = () => {
               {/* Receipt Upload */}
               <div className="space-y-3">
                 <Label className="text-lg font-medium">إرفاق صورة إيصال الدفع</Label>
-                <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileChange}
-                    className="hidden"
-                    id="receipt-upload"
-                  />
-                  <label
-                    htmlFor="receipt-upload"
-                    className="cursor-pointer flex flex-col items-center gap-3"
-                  >
-                    <Upload className="h-8 w-8 text-muted-foreground" />
-                    <div>
-                      <p className="text-sm font-medium">
-                        {receiptFile ? receiptFile.name : "اضغط لاختيار صورة الإيصال"}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        PNG, JPG, GIF حتى 5MB
+                
+                {receiptPreview ? (
+                  <div className="space-y-3">
+                    <div className="border rounded-lg p-4 bg-muted/30">
+                      <div className="flex items-center gap-3 mb-3">
+                        <CheckCircle className="h-5 w-5 text-success" />
+                        <span className="text-sm font-medium text-success">تم رفع الصورة بنجاح</span>
+                      </div>
+                      <img 
+                        src={receiptPreview} 
+                        alt="معاينة الإيصال" 
+                        className="max-w-full h-32 object-contain rounded mx-auto"
+                      />
+                      <p className="text-xs text-muted-foreground mt-2 text-center">
+                        {receiptFile?.name}
                       </p>
                     </div>
-                  </label>
-                </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setReceiptFile(null);
+                        setReceiptPreview(null);
+                      }}
+                      className="w-full"
+                    >
+                      <Upload className="h-4 w-4 ml-2" />
+                      اختيار صورة أخرى
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      className="hidden"
+                      id="receipt-upload"
+                    />
+                    <label
+                      htmlFor="receipt-upload"
+                      className="cursor-pointer flex flex-col items-center gap-3"
+                    >
+                      <Upload className="h-8 w-8 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium">
+                          اضغط لاختيار صورة الإيصال
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          PNG, JPG, GIF حتى 5MB
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+                )}
               </div>
 
               {/* Submit Button */}

@@ -9,7 +9,8 @@ import {
   CreditCard,
   LogOut,
   Trash2,
-  Mail
+  Mail,
+  Shield
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -19,6 +20,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./dropdown-menu";
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface NavbarProps {
   isLoggedIn?: boolean;
@@ -26,12 +29,34 @@ interface NavbarProps {
   balance?: number;
 }
 
-export const Navbar = ({ isLoggedIn = false, username = "محمد أحمد", balance = 1250.50 }: NavbarProps) => {
+export const Navbar = ({ isLoggedIn = false, username = "مستخدم", balance = 0 }: NavbarProps) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { toast } = useToast();
 
   const handlePageChange = (page: string) => {
     navigate(page === 'home' ? '/' : `/${page}`);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      toast({
+        title: "تم تسجيل الخروج",
+        description: "تم تسجيل خروجك بنجاح"
+      });
+      navigate('/');
+    } catch (error: any) {
+      toast({
+        title: "خطأ",
+        description: "فشل في تسجيل الخروج",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleAdminPanel = () => {
+    navigate('/admin');
   };
 
   return (
@@ -129,6 +154,13 @@ export const Navbar = ({ isLoggedIn = false, username = "محمد أحمد", bal
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    className="text-sm cursor-pointer"
+                    onClick={handleAdminPanel}
+                  >
+                    <Shield className="mr-2 h-4 w-4" />
+                    <span>لوحة الإدارة</span>
+                  </DropdownMenuItem>
                   <DropdownMenuItem className="text-sm">
                     <Mail className="mr-2 h-4 w-4" />
                     <span>التواصل: support@egyptianmind.com</span>
@@ -136,7 +168,7 @@ export const Navbar = ({ isLoggedIn = false, username = "محمد أحمد", bal
                   <DropdownMenuSeparator />
                   <DropdownMenuItem 
                     className="text-destructive cursor-pointer"
-                    onClick={() => console.log('تسجيل خروج')}
+                    onClick={handleLogout}
                   >
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>تسجيل الخروج</span>
