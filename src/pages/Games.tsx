@@ -12,6 +12,7 @@ import { GameCard } from '@/components/games/game-card';
 import { BettingLevels } from '@/components/games/betting-levels';
 import { WaitingScreen } from '@/components/games/waiting-screen';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 type ViewState = 'games' | 'betting' | 'waiting';
 
@@ -24,6 +25,7 @@ interface Game {
 }
 
 const Games = () => {
+  const { user, isLoading, isLoggedIn } = useAuth();
   const [viewState, setViewState] = useState<ViewState>('games');
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [selectedBetAmount, setSelectedBetAmount] = useState<number>(0);
@@ -43,52 +45,22 @@ const Games = () => {
 
       if (error) throw error;
 
-      // Simulate active players count for demo
+      // أرقام اللاعبين النشطين (يمكن تحديثها لاحقاً من قاعدة البيانات)
       const gamesWithPlayers = gamesData?.map((game, index) => ({
         ...game,
-        activePlayersCount: [245, 180, 320, 156][index] || Math.floor(Math.random() * 200) + 50
+        activePlayersCount: [245, 180, 320][index] || Math.floor(Math.random() * 200) + 50
       })) || [];
 
       setGames(gamesWithPlayers);
       
-      // Calculate total active players
+      // حساب إجمالي اللاعبين النشطين
       const total = gamesWithPlayers.reduce((sum, game) => sum + (game.activePlayersCount || 0), 0);
       setTotalActivePlayers(total);
     } catch (error) {
       console.error('Error fetching games:', error);
-      // Fallback to demo data
-      const demoGames = [
-        {
-          id: '1',
-          name: 'الشطرنج المصري',
-          description: 'لعبة الشطرنج الكلاسيكية بنكهة مصرية',
-          image_url: '/api/placeholder/150/150',
-          activePlayersCount: 245
-        },
-        {
-          id: '2',
-          name: 'الداما الذكية',
-          description: 'لعبة الداما مع تحديات ذكية',
-          image_url: '/api/placeholder/150/150',
-          activePlayersCount: 180
-        },
-        {
-          id: '3',
-          name: 'الذكاء السريع',
-          description: 'أسئلة ذكاء وتفكير منطقي',
-          image_url: '/api/placeholder/150/150',
-          activePlayersCount: 320
-        },
-        {
-          id: '4',
-          name: 'بلوت الاستراتيجية',
-          description: 'لعبة البلوت مع عنصر الاستراتيجية',
-          image_url: '/api/placeholder/150/150',
-          activePlayersCount: 156
-        }
-      ];
-      setGames(demoGames);
-      setTotalActivePlayers(901);
+      // البيانات الاحتياطية في حالة الخطأ
+      setGames([]);
+      setTotalActivePlayers(0);
     }
   };
 
@@ -185,7 +157,12 @@ const Games = () => {
 
   return (
     <div className="min-h-screen" dir="rtl">
-      <Navbar isLoggedIn={true} username="محمد أحمد" balance={1250.50} />
+      <Navbar 
+        isLoggedIn={isLoggedIn} 
+        username={user?.username || "مستخدم"} 
+        balance={user?.balance || 0}
+        userRole={user?.role || "user"}
+      />
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {renderContent()}

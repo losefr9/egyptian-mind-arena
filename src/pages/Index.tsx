@@ -1,80 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Navbar } from '@/components/ui/navbar';
 import { StatsCards } from '@/components/dashboard/stats-cards';
 import { QuickActions } from '@/components/dashboard/quick-actions';
 import { ActivityFeed } from '@/components/dashboard/activity-feed';
 import { DownloadApp } from '@/components/ui/download-app';
-import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 const Index = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [userStats, setUserStats] = useState({
-    username: "",
-    balance: 0,
-    wins: 0,
-    notifications: 0
-  });
-
-  useEffect(() => {
-    checkUser();
-    
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (session?.user) {
-          setIsLoggedIn(true);
-          fetchUserProfile(session.user.id);
-        } else {
-          setIsLoggedIn(false);
-          setUserStats({
-            username: "",
-            balance: 0,
-            wins: 0,
-            notifications: 0
-          });
-        }
-        setIsLoading(false);
-      }
-    );
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const checkUser = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        setIsLoggedIn(true);
-        await fetchUserProfile(session.user.id);
-      }
-    } catch (error) {
-      console.error('Error checking user:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const fetchUserProfile = async (userId: string) => {
-    try {
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('username, balance, wins, losses')
-        .eq('id', userId)
-        .single();
-
-      if (error) throw error;
-
-      setUserStats({
-        username: profile?.username || "مستخدم",
-        balance: profile?.balance || 0,
-        wins: profile?.wins || 0,
-        notifications: 3 // مؤقت
-      });
-    } catch (error) {
-      console.error('Error fetching profile:', error);
-    }
-  };
+  const { user, isLoading, isLoggedIn } = useAuth();
 
   if (isLoading) {
     return (
@@ -92,8 +25,9 @@ const Index = () => {
       {/* شريط التنقل */}
       <Navbar 
         isLoggedIn={isLoggedIn}
-        username={userStats.username}
-        balance={userStats.balance}
+        username={user?.username || "مستخدم"}
+        balance={user?.balance || 0}
+        userRole={user?.role || "user"}
       />
 
       {/* المحتوى الرئيسي */}
@@ -102,9 +36,9 @@ const Index = () => {
           <>
             {/* بطاقات الإحصائيات */}
             <StatsCards 
-              balance={userStats.balance}
-              wins={userStats.wins}
-              notifications={userStats.notifications}
+              balance={user?.balance || 0}
+              wins={0} // سيتم تحديثه لاحقاً
+              notifications={3}
             />
 
             {/* الإجراءات السريعة */}

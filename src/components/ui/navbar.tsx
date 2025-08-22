@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from './button';
 import { 
@@ -27,9 +27,10 @@ interface NavbarProps {
   isLoggedIn?: boolean;
   username?: string;
   balance?: number;
+  userRole?: string;
 }
 
-export const Navbar = ({ isLoggedIn = false, username = "مستخدم", balance = 0 }: NavbarProps) => {
+export const Navbar = ({ isLoggedIn = false, username = "مستخدم", balance = 0, userRole }: NavbarProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -152,15 +153,21 @@ export const Navbar = ({ isLoggedIn = false, username = "مستخدم", balance 
                         الرصيد: {balance.toFixed(2)} ج.م
                       </p>
                     </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem 
-                    className="text-sm cursor-pointer"
-                    onClick={handleAdminPanel}
-                  >
-                    <Shield className="mr-2 h-4 w-4" />
-                    <span>لوحة الإدارة</span>
-                  </DropdownMenuItem>
+                   </DropdownMenuLabel>
+                   <DropdownMenuSeparator />
+                   {/* إظهار لوحة التحكم للأدمن فقط */}
+                   {userRole === 'admin' && (
+                     <>
+                       <DropdownMenuItem 
+                         className="text-sm cursor-pointer"
+                         onClick={handleAdminPanel}
+                       >
+                         <Shield className="mr-2 h-4 w-4" />
+                         <span>لوحة التحكم</span>
+                       </DropdownMenuItem>
+                       <DropdownMenuSeparator />
+                     </>
+                   )}
                   <DropdownMenuItem className="text-sm">
                     <Mail className="mr-2 h-4 w-4" />
                     <span>التواصل: support@egyptianmind.com</span>

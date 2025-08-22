@@ -19,7 +19,7 @@ import {
 // Import admin components
 import { DepositsRequests } from '@/components/admin/deposits-requests';
 import { WithdrawRequests } from '@/components/admin/withdraw-requests';
-import { UsersManagement } from '@/components/admin/users-management';
+import UsersManagement from '@/components/admin/users-management';
 import { PaymentGateways } from '@/components/admin/payment-gateways';
 import { Statistics } from '@/components/admin/statistics';
 import { Notifications } from '@/components/admin/notifications';
