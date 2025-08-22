@@ -1,40 +1,70 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* Egyptian Gaming Platform Design System */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Egyptian Golden Theme */
+    --background: 210 20% 8%;
+    --foreground: 45 100% 96%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 210 20% 12%;
+    --card-foreground: 45 100% 96%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 210 20% 12%;
+    --popover-foreground: 45 100% 96%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Egyptian Gold Primary */
+    --primary: 45 100% 60%;
+    --primary-foreground: 210 20% 8%;
+    --primary-glow: 45 100% 70%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Egyptian Green Secondary */
+    --secondary: 140 50% 30%;
+    --secondary-foreground: 45 100% 96%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 210 20% 16%;
+    --muted-foreground: 45 20% 65%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 45 80% 55%;
+    --accent-foreground: 210 20% 8%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 45 100% 96%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 210 20% 20%;
+    --input: 210 20% 16%;
+    --ring: 45 100% 60%;
+
+    /* Gaming Specific Colors */
+    --success: 140 70% 50%;
+    --success-foreground: 210 20% 8%;
+    
+    --warning: 35 100% 60%;
+    --warning-foreground: 210 20% 8%;
+    
+    --egyptian-gold: 45 100% 60%;
+    --egyptian-green: 140 50% 30%;
+    --egyptian-dark: 210 20% 8%;
+    
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(45 100% 60%), hsl(45 80% 50%));
+    --gradient-secondary: linear-gradient(135deg, hsl(140 50% 30%), hsl(140 60% 25%));
+    --gradient-card: linear-gradient(135deg, hsl(210 20% 12%), hsl(210 25% 16%));
+    --gradient-hero: linear-gradient(135deg, hsl(210 20% 8%), hsl(210 25% 12%));
+    
+    /* Shadows */
+    --shadow-golden: 0 10px 30px -10px hsl(45 100% 60% / 0.3);
+    --shadow-card: 0 8px 24px -8px hsl(210 20% 0% / 0.4);
+    --shadow-glow: 0 0 40px hsl(45 100% 70% / 0.2);
+
+    /* Transitions */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-fast: all 0.2s ease;
 
     --radius: 0.5rem;
 
@@ -100,6 +130,40 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-cairo;
+    background: var(--gradient-hero);
+    min-height: 100vh;
+  }
+  
+  /* Arabic text support */
+  html[dir="rtl"] {
+    direction: rtl;
+  }
+  
+  /* Custom animations */
+  .animate-glow {
+    animation: glow 2s ease-in-out infinite alternate;
+  }
+  
+  @keyframes glow {
+    from {
+      box-shadow: var(--shadow-golden);
+    }
+    to {
+      box-shadow: var(--shadow-glow);
+    }
+  }
+  
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+  
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
   }
 }
