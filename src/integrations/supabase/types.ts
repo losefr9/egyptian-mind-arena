@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      deposit_requests: {
+        Row: {
+          admin_notes: string | null
+          amount: number
+          created_at: string
+          id: string
+          payment_details: Json
+          payment_method: string
+          processed_at: string | null
+          processed_by: string | null
+          receipt_image_url: string | null
+          sender_number: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          amount: number
+          created_at?: string
+          id?: string
+          payment_details: Json
+          payment_method: string
+          processed_at?: string | null
+          processed_by?: string | null
+          receipt_image_url?: string | null
+          sender_number: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          admin_notes?: string | null
+          amount?: number
+          created_at?: string
+          id?: string
+          payment_details?: Json
+          payment_method?: string
+          processed_at?: string | null
+          processed_by?: string | null
+          receipt_image_url?: string | null
+          sender_number?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       game_sessions: {
         Row: {
           bet_amount: number
@@ -142,6 +190,48 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      withdrawal_requests: {
+        Row: {
+          admin_notes: string | null
+          amount: number
+          created_at: string
+          id: string
+          processed_at: string | null
+          processed_by: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          withdrawal_details: Json
+          withdrawal_method: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          amount: number
+          created_at?: string
+          id?: string
+          processed_at?: string | null
+          processed_by?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          withdrawal_details: Json
+          withdrawal_method: string
+        }
+        Update: {
+          admin_notes?: string | null
+          amount?: number
+          created_at?: string
+          id?: string
+          processed_at?: string | null
+          processed_by?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          withdrawal_details?: Json
+          withdrawal_method?: string
         }
         Relationships: []
       }
