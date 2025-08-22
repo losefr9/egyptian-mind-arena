@@ -1,80 +1,232 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { UserPlus, ArrowRight } from 'lucide-react';
+import { UserPlus, ArrowLeft, Eye, EyeOff, Gamepad2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 const Signup = () => {
-  const handleSignup = (e: React.FormEvent) => {
+  const [formData, setFormData] = useState({
+    playerName: '',
+    username: '',
+    phone: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    // سيتم تنفيذ إنشاء الحساب مع Supabase Auth لاحقاً
-    console.log('إنشاء حساب جديد...');
+    
+    if (formData.password !== formData.confirmPassword) {
+      toast({
+        title: "خطأ",
+        description: "كلمة المرور وتأكيد كلمة المرور غير متطابقتان",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      toast({
+        title: "خطأ",
+        description: "كلمة المرور يجب أن تكون على الأقل 6 أحرف",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    
+    try {
+      // سيتم تنفيذ إنشاء الحساب مع Supabase Auth لاحقاً
+      console.log('إنشاء حساب جديد...', formData);
+      
+      toast({
+        title: "تم إنشاء الحساب بنجاح",
+        description: "مرحباً بك في منصة E-FAR!"
+      });
+    } catch (error: any) {
+      toast({
+        title: "حدث خطأ",
+        description: error.message || "فشل في إنشاء الحساب",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center" dir="rtl">
-      <div className="max-w-md w-full px-4">
-        <Card className="bg-gradient-to-br from-card to-card/80 border-border/50 shadow-card">
-          <CardHeader className="text-center">
-            <div className="mx-auto h-12 w-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
-              <UserPlus className="h-6 w-6 text-primary" />
+    <div className="min-h-screen bg-gradient-to-br from-primary/20 via-background to-secondary/20 flex items-center justify-center p-4" dir="rtl">
+      <div className="max-w-lg w-full">
+        <Card className="backdrop-blur-sm border-primary/20 shadow-elegant">
+          <CardHeader className="text-center pb-6">
+            {/* Logo and Platform Name */}
+            <div className="mx-auto h-20 w-20 bg-gradient-to-br from-primary to-primary-glow rounded-full flex items-center justify-center mb-4 shadow-glow">
+              <Gamepad2 className="h-10 w-10 text-white" />
             </div>
-            <CardTitle className="text-2xl font-bold text-primary">
-              إنشاء حساب جديد
+            <CardTitle className="text-3xl font-bold bg-gradient-to-r from-primary to-primary-glow bg-clip-text text-transparent">
+              E-FAR
             </CardTitle>
-            <p className="text-muted-foreground">
-              انضم إلى منصة العقل المصري
+            <p className="text-muted-foreground text-lg mt-2">
+              إنشاء حساب جديد
             </p>
           </CardHeader>
+          
           <CardContent>
-            <form onSubmit={handleSignup} className="space-y-4">
+            <form onSubmit={handleSignup} className="space-y-5">
+              {/* Player Name */}
               <div className="space-y-2">
-                <Label htmlFor="fullname">الاسم الكامل</Label>
+                <Label htmlFor="playerName" className="text-sm font-medium">
+                  اسم اللاعب *
+                </Label>
                 <Input
-                  id="fullname"
+                  id="playerName"
+                  name="playerName"
                   type="text"
-                  placeholder="أدخل اسمك الكامل"
+                  value={formData.playerName}
+                  onChange={handleInputChange}
+                  placeholder="أدخل اسم اللاعب"
+                  className="h-12 text-center"
                   required
                 />
               </div>
+
+              {/* Username */}
               <div className="space-y-2">
-                <Label htmlFor="email">البريد الإلكتروني</Label>
+                <Label htmlFor="username" className="text-sm font-medium">
+                  اليوزر نيم *
+                </Label>
+                <Input
+                  id="username"
+                  name="username"
+                  type="text"
+                  value={formData.username}
+                  onChange={handleInputChange}
+                  placeholder="أدخل اليوزر نيم"
+                  className="h-12 text-center"
+                  required
+                />
+              </div>
+
+              {/* Phone Number */}
+              <div className="space-y-2">
+                <Label htmlFor="phone" className="text-sm font-medium">
+                  رقم الهاتف *
+                </Label>
+                <Input
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  value={formData.phone}
+                  onChange={handleInputChange}
+                  placeholder="01xxxxxxxxx"
+                  className="h-12 text-center"
+                  required
+                />
+              </div>
+
+              {/* Email (Optional) */}
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-sm font-medium">
+                  الإيميل (اختياري)
+                </Label>
                 <Input
                   id="email"
+                  name="email"
                   type="email"
-                  placeholder="أدخل بريدك الإلكتروني"
-                  required
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  placeholder="example@email.com"
+                  className="h-12 text-center"
                 />
               </div>
+
+              {/* Password */}
               <div className="space-y-2">
-                <Label htmlFor="password">كلمة المرور</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="أدخل كلمة مرور قوية"
-                  required
-                />
+                <Label htmlFor="password" className="text-sm font-medium">
+                  كلمة المرور *
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    placeholder="أدخل كلمة مرور قوية"
+                    className="h-12 text-center pr-12"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
               </div>
+
+              {/* Confirm Password */}
               <div className="space-y-2">
-                <Label htmlFor="confirm-password">تأكيد كلمة المرور</Label>
-                <Input
-                  id="confirm-password"
-                  type="password"
-                  placeholder="أعد إدخال كلمة المرور"
-                  required
-                />
+                <Label htmlFor="confirmPassword" className="text-sm font-medium">
+                  تأكيد كلمة المرور *
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={formData.confirmPassword}
+                    onChange={handleInputChange}
+                    placeholder="أعد إدخال كلمة المرور"
+                    className="h-12 text-center pr-12"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
               </div>
-              <Button type="submit" variant="golden" className="w-full">
-                إنشاء الحساب
-                <ArrowRight className="mr-2 h-4 w-4" />
+
+              {/* Submit Button */}
+              <Button 
+                type="submit" 
+                size="lg" 
+                className="w-full h-12 text-lg font-semibold"
+                disabled={isLoading}
+              >
+                {isLoading ? "جاري الإنشاء..." : "إنشاء الحساب"}
+                <ArrowLeft className="mr-2 h-5 w-5" />
               </Button>
-              <div className="text-center">
+
+              {/* Login Link */}
+              <div className="text-center pt-4">
                 <p className="text-sm text-muted-foreground">
                   لديك حساب بالفعل؟{' '}
-                  <a href="/login" className="text-primary hover:underline">
+                  <Link to="/login" className="text-primary hover:text-primary-glow font-medium hover:underline transition-colors">
                     تسجيل الدخول
-                  </a>
+                  </Link>
                 </p>
               </div>
             </form>

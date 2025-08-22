@@ -1,62 +1,142 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { LogIn, ArrowRight } from 'lucide-react';
+import { LogIn, ArrowLeft, Eye, EyeOff, Gamepad2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 const Login = () => {
-  const handleLogin = (e: React.FormEvent) => {
+  const [formData, setFormData] = useState({
+    username: '',
+    password: ''
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // سيتم تنفيذ تسجيل الدخول مع Supabase Auth لاحقاً
-    console.log('تسجيل الدخول...');
+    
+    if (!formData.username || !formData.password) {
+      toast({
+        title: "خطأ",
+        description: "يرجى ملء جميع الحقول المطلوبة",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    
+    try {
+      // سيتم تنفيذ تسجيل الدخول مع Supabase Auth لاحقاً
+      console.log('تسجيل الدخول...', formData);
+      
+      toast({
+        title: "تم تسجيل الدخول بنجاح",
+        description: "مرحباً بعودتك إلى E-FAR!"
+      });
+    } catch (error: any) {
+      toast({
+        title: "حدث خطأ",
+        description: error.message || "فشل في تسجيل الدخول",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center" dir="rtl">
-      <div className="max-w-md w-full px-4">
-        <Card className="bg-gradient-to-br from-card to-card/80 border-border/50 shadow-card">
-          <CardHeader className="text-center">
-            <div className="mx-auto h-12 w-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
-              <LogIn className="h-6 w-6 text-primary" />
+    <div className="min-h-screen bg-gradient-to-br from-secondary/20 via-background to-primary/20 flex items-center justify-center p-4" dir="rtl">
+      <div className="max-w-md w-full">
+        <Card className="backdrop-blur-sm border-primary/20 shadow-elegant">
+          <CardHeader className="text-center pb-6">
+            {/* Logo and Platform Name */}
+            <div className="mx-auto h-20 w-20 bg-gradient-to-br from-primary to-primary-glow rounded-full flex items-center justify-center mb-4 shadow-glow">
+              <Gamepad2 className="h-10 w-10 text-white" />
             </div>
-            <CardTitle className="text-2xl font-bold text-primary">
-              تسجيل الدخول
+            <CardTitle className="text-3xl font-bold bg-gradient-to-r from-primary to-primary-glow bg-clip-text text-transparent">
+              E-FAR
             </CardTitle>
-            <p className="text-muted-foreground">
-              ادخل إلى حسابك لبدء اللعب
+            <p className="text-muted-foreground text-lg mt-2">
+              تسجيل الدخول
             </p>
           </CardHeader>
+          
           <CardContent>
-            <form onSubmit={handleLogin} className="space-y-4">
+            <form onSubmit={handleLogin} className="space-y-6">
+              {/* Username */}
               <div className="space-y-2">
-                <Label htmlFor="email">البريد الإلكتروني</Label>
+                <Label htmlFor="username" className="text-sm font-medium">
+                  اليوزر نيم
+                </Label>
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder="أدخل بريدك الإلكتروني"
+                  id="username"
+                  name="username"
+                  type="text"
+                  value={formData.username}
+                  onChange={handleInputChange}
+                  placeholder="أدخل اليوزر نيم"
+                  className="h-12 text-center"
                   required
                 />
               </div>
+
+              {/* Password */}
               <div className="space-y-2">
-                <Label htmlFor="password">كلمة المرور</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="أدخل كلمة المرور"
-                  required
-                />
+                <Label htmlFor="password" className="text-sm font-medium">
+                  كلمة المرور
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    placeholder="أدخل كلمة المرور"
+                    className="h-12 text-center pr-12"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
               </div>
-              <Button type="submit" variant="golden" className="w-full">
-                تسجيل الدخول
-                <ArrowRight className="mr-2 h-4 w-4" />
+
+              {/* Submit Button */}
+              <Button 
+                type="submit" 
+                size="lg" 
+                className="w-full h-12 text-lg font-semibold mt-8"
+                disabled={isLoading}
+              >
+                {isLoading ? "جاري تسجيل الدخول..." : "تسجيل الدخول"}
+                <ArrowLeft className="mr-2 h-5 w-5" />
               </Button>
-              <div className="text-center">
+
+              {/* Signup Link */}
+              <div className="text-center pt-6">
                 <p className="text-sm text-muted-foreground">
                   ليس لديك حساب؟{' '}
-                  <a href="/signup" className="text-primary hover:underline">
+                  <Link to="/signup" className="text-primary hover:text-primary-glow font-medium hover:underline transition-colors">
                     إنشاء حساب جديد
-                  </a>
+                  </Link>
                 </p>
               </div>
             </form>
