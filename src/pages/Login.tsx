@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { LogIn, ArrowLeft, Eye, EyeOff, Gamepad2 } from 'lucide-react';
+import { LogIn, ArrowLeft, Eye, EyeOff, Gamepad2, Settings } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -15,8 +15,30 @@ const Login = () => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isCreatingAccounts, setIsCreatingAccounts] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // التحقق من حالة المصادقة عند تحميل الصفحة
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        navigate("/");
+      }
+    };
+    
+    checkAuth();
+
+    // الاستماع لتغييرات حالة المصادقة
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session) {
+        navigate("/");
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -24,6 +46,38 @@ const Login = () => {
       ...prev,
       [name]: value
     }));
+  };
+
+  const createAdminAccounts = async () => {
+    setIsCreatingAccounts(true);
+    try {
+      console.log('Creating admin accounts...');
+      const { data, error } = await supabase.functions.invoke('create-admin-accounts');
+      
+      if (error) {
+        console.error('Error creating admin accounts:', error);
+        toast({
+          title: "خطأ",
+          description: "فشل في إنشاء حسابات الإدمن",
+          variant: "destructive",
+        });
+      } else {
+        console.log('Admin accounts creation result:', data);
+        toast({
+          title: "تم بنجاح",
+          description: "تم إنشاء/تحديث حسابات الإدمن بنجاح. يمكنك الآن تسجيل الدخول.",
+        });
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      toast({
+        title: "خطأ",
+        description: "حدث خطأ أثناء إنشاء حسابات الإدمن",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingAccounts(false);
+    }
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -158,6 +212,19 @@ const Login = () => {
               >
                 {isLoading ? "جاري تسجيل الدخول..." : "تسجيل الدخول"}
                 <ArrowLeft className="mr-2 h-5 w-5" />
+              </Button>
+
+              {/* Create Admin Accounts Button */}
+              <Button 
+                type="button" 
+                variant="outline"
+                size="sm" 
+                className="w-full h-10 text-sm"
+                disabled={isCreatingAccounts}
+                onClick={createAdminAccounts}
+              >
+                {isCreatingAccounts ? "جاري إنشاء الحسابات..." : "إنشاء حسابات الإدمن"}
+                <Settings className="mr-2 h-4 w-4" />
               </Button>
 
               {/* Signup Link */}
