@@ -18,7 +18,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
         isLoggedIn={isLoggedIn}
         username={user?.username || "مستخدم"}
         balance={user?.balance || 0}
-        userRole={user?.role || "user"}
+        userRole={user?.role}
       />
       
       {/* شريط التنقل السفلي للهواتف */}
