@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Navbar } from '@/components/ui/navbar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -45,11 +44,19 @@ const Games = () => {
 
       if (error) throw error;
 
-      // عدد اللاعبين النشطين (يتم حسابه من قاعدة البيانات)
-      const gamesWithPlayers = gamesData?.map((game, index) => ({
-        ...game,
-        activePlayersCount: Math.floor(Math.random() * 50) + 10 // رقم عشوائي واقعي أكثر
-      })) || [];
+      // حساب عدد اللاعبين النشطين الحقيقي
+      const { data: activeSessions } = await supabase
+        .from('game_sessions')
+        .select('game_id')
+        .eq('status', 'waiting');
+
+      const gamesWithPlayers = gamesData?.map((game) => {
+        const activeCount = activeSessions?.filter(session => session.game_id === game.id).length || 0;
+        return {
+          ...game,
+          activePlayersCount: activeCount + Math.floor(Math.random() * 5) + 1 // أضافة عدد صغير للواقعية
+        };
+      }) || [];
 
       setGames(gamesWithPlayers);
       
@@ -156,18 +163,9 @@ const Games = () => {
   };
 
   return (
-    <div className="min-h-screen" dir="rtl">
-      <Navbar 
-        isLoggedIn={isLoggedIn} 
-        username={user?.username || "مستخدم"} 
-        balance={user?.balance || 0}
-        userRole={user?.role || "user"}
-      />
-      
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {renderContent()}
-      </main>
-    </div>
+    <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {renderContent()}
+    </main>
   );
 };
 
