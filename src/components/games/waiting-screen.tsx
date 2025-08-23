@@ -33,31 +33,56 @@ export const WaitingScreen: React.FC<WaitingScreenProps> = ({
   }, []);
 
   useEffect(() => {
-    if (!gameSessionId) return;
+    if (!gameSessionId || !user) return;
 
-    // فحص حالة الجلسة كل ثانيتين
-    const checkSessionStatus = async () => {
+    // إعداد الاشتراك في الوقت الحقيقي
+    const channel = supabase
+      .channel('game-session-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'game_sessions',
+          filter: `id=eq.${gameSessionId}`
+        },
+        (payload) => {
+          console.log('Game session updated:', payload);
+          const updatedSession = payload.new;
+          
+          if (updatedSession.status === 'in_progress' && updatedSession.player2_id) {
+            setStatus('found');
+            setTimeout(() => {
+              onMatchFound(updatedSession);
+            }, 2000);
+          }
+        }
+      )
+      .subscribe();
+
+    // فحص حالة الجلسة مرة واحدة عند التحميل
+    const checkInitialStatus = async () => {
       try {
         const { data, error } = await supabase
           .from('game_sessions')
           .select('*')
           .eq('id', gameSessionId)
-          .single();
+          .maybeSingle();
 
         if (error) throw error;
 
-        if (data.status === 'in_progress' && data.player2_id) {
+        if (data && data.status === 'in_progress' && data.player2_id) {
           setStatus('found');
           setTimeout(() => {
             onMatchFound(data);
-          }, 2000); // انتظار لإظهار رسالة الربط
+          }, 1000);
         }
       } catch (error) {
-        console.error('Error checking session status:', error);
+        console.error('Error checking initial session status:', error);
       }
     };
 
-    const statusInterval = setInterval(checkSessionStatus, 2000);
+    checkInitialStatus();
     
     // انتهاء صلاحية البحث بعد 5 دقائق
     const timeoutTimer = setTimeout(() => {
@@ -65,10 +90,10 @@ export const WaitingScreen: React.FC<WaitingScreenProps> = ({
     }, 300000); // 5 دقائق
 
     return () => {
-      clearInterval(statusInterval);
+      channel.unsubscribe();
       clearTimeout(timeoutTimer);
     };
-  }, [gameSessionId, onMatchFound]);
+  }, [gameSessionId, onMatchFound, user]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
