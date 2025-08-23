@@ -132,7 +132,7 @@ export const useAuth = () => {
       const userData = {
         id: profile.id,
         username: profile.username || "مستخدم",
-        balance: profile.balance || 0,
+        balance: profile.role === 'admin' ? 0 : (profile.balance || 0), // أرصدة الأدمن دائماً 0
         role: profile.role || "user",
         email: profile.email || ""
       };
