@@ -89,13 +89,17 @@ const Login = () => {
         throw new Error('كلمة المرور غير صحيحة أو البريد الإلكتروني غير موجود');
       }
 
+      console.log('Login successful, user:', data.user);
+
       toast({
         title: "تم تسجيل الدخول بنجاح",
         description: "مرحباً بعودتك إلى E-FAR!"
       });
 
-      // Navigate to home page
-      navigate('/');
+      // انتظار قصير لضمان تحديث الحالة قبل التوجيه
+      setTimeout(() => {
+        navigate('/');
+      }, 100);
     } catch (error: any) {
       console.error('Login process error:', error);
       toast({

@@ -20,6 +20,7 @@ export const useAuth = () => {
     // الاستماع لتغييرات حالة المصادقة
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.email);
         if (session?.user) {
           await fetchUserProfile(session.user.id);
           setIsLoggedIn(true);
@@ -50,13 +51,19 @@ export const useAuth = () => {
 
   const fetchUserProfile = async (userId: string) => {
     try {
+      console.log('Fetching profile for user:', userId);
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('id, username, balance, role, email')
         .eq('id', userId)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Profile fetch error:', error);
+        throw error;
+      }
+
+      console.log('Profile fetched:', profile);
 
       setUser({
         id: profile.id,
