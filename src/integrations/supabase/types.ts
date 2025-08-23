@@ -463,6 +463,15 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      generate_random_math_question: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          answer: number
+          difficulty_level: number
+          id: string
+          question: string
+        }[]
+      }
       get_math_question_by_id: {
         Args: { question_id: string }
         Returns: {
@@ -533,6 +542,13 @@ export type Database = {
       update_user_balance: {
         Args: { _amount: number; _operation: string; _user_id: string }
         Returns: boolean
+      }
+      validate_generated_math_answer: {
+        Args: { question_text: string; user_answer: number }
+        Returns: {
+          correct_answer: number
+          is_correct: boolean
+        }[]
       }
       validate_math_answer: {
         Args: { question_id: string; user_answer: number }
