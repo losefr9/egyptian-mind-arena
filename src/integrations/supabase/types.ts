@@ -206,24 +206,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "user_activity_log_admin_id_fkey"
-            columns: ["admin_id"]
-            isOneToOne: false
-            referencedRelation: "public_profiles"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "user_activity_log_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_activity_log_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -293,32 +279,21 @@ export type Database = {
       }
     }
     Views: {
-      public_profiles: {
-        Row: {
-          id: string | null
-          losses: number | null
-          username: string | null
-          wins: number | null
-        }
-        Insert: {
-          id?: string | null
-          losses?: number | null
-          username?: string | null
-          wins?: number | null
-        }
-        Update: {
-          id?: string | null
-          losses?: number | null
-          username?: string | null
-          wins?: number | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       create_admin_auth_accounts: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      get_public_profiles: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          losses: number
+          username: string
+          wins: number
+        }[]
       }
       get_public_username: {
         Args: { user_id_input: string }
@@ -348,6 +323,15 @@ export type Database = {
       log_user_activity: {
         Args: { _action: string; _details?: Json; _user_id: string }
         Returns: undefined
+      }
+      search_user_by_username: {
+        Args: { username_input: string }
+        Returns: {
+          id: string
+          losses: number
+          username: string
+          wins: number
+        }[]
       }
       update_user_balance: {
         Args: { _amount: number; _operation: string; _user_id: string }

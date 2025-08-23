@@ -55,14 +55,11 @@ const Signup = () => {
     setIsLoading(true);
     
     try {
-      // Check if username already exists
-      const { data: existingUser, error: checkError } = await supabase
-        .from('profiles')
-        .select('username')
-        .eq('username', formData.username)
-        .single();
+      // Check if username already exists using safe function
+      const { data: existingUsers, error: checkError } = await supabase
+        .rpc('search_user_by_username', { username_input: formData.username });
 
-      if (existingUser) {
+      if (existingUsers && existingUsers.length > 0 && existingUsers.some(u => u.username === formData.username)) {
         throw new Error('اسم المستخدم مستخدم بالفعل');
       }
 
