@@ -119,6 +119,7 @@ const Games = () => {
         .eq('bet_amount', amount)
         .eq('status', 'waiting')
         .is('player2_id', null)
+        .neq('player1_id', user.id) // تجنب ربط اللاعب مع نفسه
         .limit(1);
 
       if (searchError) throw searchError;
@@ -324,8 +325,10 @@ const Games = () => {
   };
 
   return (
-    <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {renderContent()}
+    <main className="min-h-screen w-full">
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8">
+        {renderContent()}
+      </div>
     </main>
   );
 };

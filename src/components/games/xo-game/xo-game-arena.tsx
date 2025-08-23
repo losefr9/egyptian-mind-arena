@@ -123,10 +123,10 @@ export const XOGameArena: React.FC<XOGameArenaProps> = ({ gameSession, onExit })
 
     setWaitingForAnswer(false);
 
-    // التحقق من صحة الإجابة باستخدام الدالة الآمنة
+    // التحقق من صحة الإجابة باستخدام الدالة الآمنة للأسئلة المولدة عشوائياً
     try {
-      const { data: validationData, error: validationError } = await supabase.rpc('validate_math_answer', {
-        question_id: mathQuestion.id,
+      const { data: validationData, error: validationError } = await supabase.rpc('validate_generated_math_answer', {
+        question_text: mathQuestion.question,
         user_answer: answer
       });
 
@@ -243,45 +243,45 @@ export const XOGameArena: React.FC<XOGameArenaProps> = ({ gameSession, onExit })
   }, [waitingForAnswer, timeLeft]);
 
   return (
-    <div className="max-w-4xl mx-auto p-4 space-y-6">
+    <div className="min-h-screen p-2 sm:p-4 space-y-4 sm:space-y-6">
       {/* معلومات اللعبة */}
       <Card className="bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <Trophy className="h-6 w-6 text-primary" />
+        <CardHeader className="pb-2 sm:pb-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+            <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+              <Trophy className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
               <span>مباراة XO</span>
             </CardTitle>
-            <Button variant="outline" onClick={onExit}>
-              <ArrowLeft className="h-4 w-4 ml-2" />
+            <Button variant="outline" onClick={onExit} size="sm">
+              <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4 ml-1" />
               خروج
             </Button>
           </div>
         </CardHeader>
         
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="flex items-center gap-2">
+        <CardContent className="pt-0">
+          <div className="flex flex-col space-y-3 sm:grid sm:grid-cols-1 md:grid-cols-3 sm:gap-4 sm:space-y-0">
+            <div className="flex flex-wrap items-center gap-2 justify-center sm:justify-start">
               <DollarSign className="h-4 w-4 text-green-500" />
-              <span className="text-sm">الجائزة الكلية:</span>
-              <Badge variant="secondary">{prizeAmount.toFixed(2)} جنيه</Badge>
+              <span className="text-xs sm:text-sm">الجائزة:</span>
+              <Badge variant="secondary" className="text-xs sm:text-sm">{prizeAmount.toFixed(2)} جنيه</Badge>
             </div>
             
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 justify-center sm:justify-start">
               <Trophy className="h-4 w-4 text-primary" />
-              <span className="text-sm">صافي الربح:</span>
-              <Badge variant="golden">{winnerEarnings.toFixed(2)} جنيه</Badge>
+              <span className="text-xs sm:text-sm">صافي الربح:</span>
+              <Badge variant="golden" className="text-xs sm:text-sm">{winnerEarnings.toFixed(2)} جنيه</Badge>
             </div>
             
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 justify-center sm:justify-start">
               <Users className="h-4 w-4 text-blue-500" />
-              <span className="text-sm">اللاعبون:</span>
-              <div className="flex gap-2">
-                <Badge variant={gameSession.player1_id === user?.id ? 'default' : 'secondary'}>
+              <span className="text-xs sm:text-sm">اللاعبون:</span>
+              <div className="flex flex-wrap gap-1 items-center">
+                <Badge variant={gameSession.player1_id === user?.id ? 'default' : 'secondary'} className="text-xs">
                   {player1Username} (X)
                 </Badge>
-                <span className="text-muted-foreground">vs</span>
-                <Badge variant={gameSession.player2_id === user?.id ? 'default' : 'secondary'}>
+                <span className="text-muted-foreground text-xs">vs</span>
+                <Badge variant={gameSession.player2_id === user?.id ? 'default' : 'secondary'} className="text-xs">
                   {player2Username} (O)
                 </Badge>
               </div>
@@ -358,9 +358,9 @@ export const XOGameArena: React.FC<XOGameArenaProps> = ({ gameSession, onExit })
         </Card>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="flex flex-col space-y-4 lg:grid lg:grid-cols-2 lg:gap-6 lg:space-y-0">
         {/* لوحة اللعب */}
-        <div className="flex justify-center">
+        <div className="flex justify-center order-1 lg:order-1">
           <XOBoard
             board={board}
             onCellClick={handleCellClick}
@@ -371,7 +371,7 @@ export const XOGameArena: React.FC<XOGameArenaProps> = ({ gameSession, onExit })
         </div>
 
         {/* السؤال الرياضي */}
-        <div className="flex justify-center">
+        <div className="flex justify-center order-2 lg:order-2">
           {waitingForAnswer && mathQuestion ? (
             <MathQuestion
               question={mathQuestion.question}
@@ -382,8 +382,8 @@ export const XOGameArena: React.FC<XOGameArenaProps> = ({ gameSession, onExit })
             />
           ) : (
               <Card className="w-full max-w-md bg-muted/50">
-                <CardContent className="pt-6 text-center">
-                  <div className="text-muted-foreground">
+                <CardContent className="pt-4 sm:pt-6 text-center">
+                  <div className="text-muted-foreground text-sm sm:text-base">
                     {isMyTurn && gameStatus === 'playing' 
                       ? '🎯 اختر مربعاً لإظهار السؤال الرياضي' 
                       : gameStatus === 'playing' 

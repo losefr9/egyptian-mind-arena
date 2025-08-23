@@ -153,47 +153,47 @@ export const WaitingScreen: React.FC<WaitingScreenProps> = ({
   const statusContent = getStatusContent();
 
   return (
-    <div className="flex items-center justify-center min-h-[60vh]">
+    <div className="flex items-center justify-center min-h-[60vh] p-4">
       <Card className={`w-full max-w-md bg-gradient-to-br ${statusContent.color}`}>
-        <CardHeader className="text-center">
-          <div className="mx-auto w-16 h-16 bg-background rounded-full flex items-center justify-center mb-4 shadow-md">
+        <CardHeader className="text-center pb-4 sm:pb-6">
+          <div className="mx-auto w-12 h-12 sm:w-16 sm:h-16 bg-background rounded-full flex items-center justify-center mb-3 sm:mb-4 shadow-md">
             {statusContent.icon}
           </div>
-          <CardTitle className="text-2xl">{statusContent.title}</CardTitle>
+          <CardTitle className="text-lg sm:text-2xl">{statusContent.title}</CardTitle>
         </CardHeader>
         
-        <CardContent className="space-y-6">
-          <div className="text-center space-y-4">
-            <div className="bg-background/60 rounded-lg p-4 backdrop-blur-sm">
-              <div className="text-lg font-semibold">{gameName}</div>
-              <div className="text-2xl font-bold text-primary">{betAmount} ريال</div>
+        <CardContent className="space-y-4 sm:space-y-6 pt-0">
+          <div className="text-center space-y-3 sm:space-y-4">
+            <div className="bg-background/60 rounded-lg p-3 sm:p-4 backdrop-blur-sm">
+              <div className="text-base sm:text-lg font-semibold">{gameName}</div>
+              <div className="text-xl sm:text-2xl font-bold text-primary">{betAmount} جنيه</div>
             </div>
             
-            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-              <Clock className="h-4 w-4" />
+            <div className="flex items-center justify-center gap-2 text-xs sm:text-sm text-muted-foreground">
+              <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
               <span>وقت الانتظار: {formatTime(waitTime)}</span>
             </div>
             
             <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm">
-                <Users className="h-4 w-4 text-primary" />
+              <div className="flex items-center gap-2 text-xs sm:text-sm">
+                <Users className="h-3 w-3 sm:h-4 sm:w-4 text-primary" />
                 <span>{statusContent.message}</span>
               </div>
               
-              <div className="flex items-center gap-2 text-sm">
-                <Trophy className="h-4 w-4 text-warning" />
-                <span>جائزة الفائز: {(betAmount * 2 * 0.9).toFixed(2)} ريال</span>
+              <div className="flex items-center gap-2 text-xs sm:text-sm">
+                <Trophy className="h-3 w-3 sm:h-4 sm:w-4 text-warning" />
+                <span>جائزة الفائز: {(betAmount * 2 * 0.9).toFixed(2)} جنيه</span>
               </div>
             </div>
             
             {status === 'searching' && (
-              <div className="bg-background/40 rounded-lg p-3 text-xs text-muted-foreground backdrop-blur-sm">
+              <div className="bg-background/40 rounded-lg p-2 sm:p-3 text-xs text-muted-foreground backdrop-blur-sm">
                 سيتم ربطك تلقائياً بلاعب آخر في نفس المستوى. يرجى الانتظار...
               </div>
             )}
 
             {status === 'timeout' && (
-              <div className="bg-background/40 rounded-lg p-3 text-xs text-muted-foreground backdrop-blur-sm">
+              <div className="bg-background/40 rounded-lg p-2 sm:p-3 text-xs text-muted-foreground backdrop-blur-sm">
                 تم إرجاع مبلغ الرهان إلى رصيدك. يمكنك المحاولة مرة أخرى.
               </div>
             )}
@@ -201,9 +201,10 @@ export const WaitingScreen: React.FC<WaitingScreenProps> = ({
           
           <Button 
             variant={status === 'found' ? 'secondary' : 'outline'}
-            className="w-full" 
+            className="w-full text-sm sm:text-base" 
             onClick={handleCancelSearch}
             disabled={status === 'found'}
+            size="sm"
           >
             {status === 'found' ? 'جاري التحضير...' : 'إلغاء البحث'}
           </Button>
