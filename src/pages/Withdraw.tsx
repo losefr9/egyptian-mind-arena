@@ -125,16 +125,23 @@ const Withdraw = () => {
       }
       
       // Create withdrawal request
-      const { error } = await supabase
+      console.log('Creating withdrawal request...');
+      const { error, data } = await supabase
         .from('withdrawal_requests')
         .insert({
           user_id: user.id,
           amount: parseFloat(amount),
           withdrawal_method: withdrawalMethod,
           withdrawal_details: walletDetails
-        });
+        })
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database insert error:', error);
+        throw new Error(`فشل في حفظ طلب السحب: ${error.message}`);
+      }
+
+      console.log('Withdrawal request created successfully:', data);
 
       toast({
         title: "تم إرسال طلب السحب",

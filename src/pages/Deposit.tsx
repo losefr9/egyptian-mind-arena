@@ -126,13 +126,24 @@ const Deposit = () => {
     const fileExt = file.name.split('.').pop();
     const fileName = `${userId}/${Date.now()}.${fileExt}`;
     
-    const { error: uploadError } = await supabase.storage
-      .from('payment-receipts')
-      .upload(fileName, file);
+    try {
+      const { error: uploadError, data } = await supabase.storage
+        .from('payment-receipts')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
 
-    if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        throw new Error(`فشل في رفع الصورة: ${uploadError.message}`);
+      }
 
-    return fileName;
+      return fileName;
+    } catch (error) {
+      console.error('Storage upload failed:', error);
+      throw error;
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -172,13 +183,16 @@ const Deposit = () => {
       }
 
       // Upload receipt image
+      console.log('Starting file upload...', receiptFile.name, receiptFile.size);
       const receiptUrl = await uploadReceipt(receiptFile, user.id);
+      console.log('File uploaded successfully:', receiptUrl);
 
       // Get payment method details
       const selectedMethod = paymentMethods.find(m => m.id === paymentMethod);
       
       // Create deposit request
-      const { error } = await supabase
+      console.log('Creating deposit request...');
+      const { error, data } = await supabase
         .from('deposit_requests')
         .insert({
           user_id: user.id,
@@ -187,9 +201,15 @@ const Deposit = () => {
           payment_details: selectedMethod?.details || {},
           sender_number: senderNumber,
           receipt_image_url: receiptUrl
-        });
+        })
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database insert error:', error);
+        throw new Error(`فشل في حفظ طلب الإيداع: ${error.message}`);
+      }
+
+      console.log('Deposit request created successfully:', data);
 
       toast({
         title: "تم إرسال طلب الإيداع",
