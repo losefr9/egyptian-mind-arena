@@ -17,25 +17,26 @@ export const useAuth = () => {
   useEffect(() => {
     let mounted = true;
 
-    const initAuth = async () => {
+    const checkAuth = async () => {
       try {
-        // التحقق من الجلسة الحالية أولاً
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user && mounted) {
           console.log('Initial session found:', session.user.email);
-          await fetchUserProfile(session.user.id);
-          setIsLoggedIn(true);
+          const profileData = await fetchUserProfile(session.user.id);
+          if (profileData && mounted) {
+            setIsLoggedIn(true);
+          }
         }
       } catch (error) {
         console.error('Error checking initial auth:', error);
-      }
-      
-      if (mounted) {
-        setIsLoading(false);
+      } finally {
+        if (mounted) {
+          setIsLoading(false);
+        }
       }
     };
 
-    // إعداد listener أولاً
+    // الاستماع لتغييرات حالة المصادقة
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('Auth state changed:', event, session?.user?.email);
@@ -44,19 +45,23 @@ export const useAuth = () => {
 
         if (session?.user) {
           console.log('User signed in, fetching profile...');
-          await fetchUserProfile(session.user.id);
-          setIsLoggedIn(true);
+          const profileData = await fetchUserProfile(session.user.id);
+          if (profileData && mounted) {
+            setIsLoggedIn(true);
+          }
         } else {
           console.log('User signed out');
           setUser(null);
           setIsLoggedIn(false);
         }
-        setIsLoading(false);
+        
+        if (mounted) {
+          setIsLoading(false);
+        }
       }
     );
 
-    // ثم التحقق من الجلسة الحالية
-    initAuth();
+    checkAuth();
 
     return () => {
       mounted = false;
@@ -75,21 +80,25 @@ export const useAuth = () => {
 
       if (error) {
         console.error('Profile fetch error:', error);
-        throw error;
+        return null;
       }
 
-      console.log('Profile fetched:', profile);
+      console.log('Profile fetched successfully:', profile);
 
-      setUser({
+      const userData = {
         id: profile.id,
         username: profile.username || "مستخدم",
         balance: profile.balance || 0,
         role: profile.role || "user",
         email: profile.email
-      });
+      };
+
+      setUser(userData);
+      return userData;
     } catch (error) {
       console.error('Error fetching profile:', error);
       setUser(null);
+      return null;
     }
   };
 

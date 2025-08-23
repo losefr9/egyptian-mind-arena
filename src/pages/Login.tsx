@@ -95,10 +95,10 @@ const Login = () => {
         description: "مرحباً بعودتك إلى E-FAR!"
       });
 
-      // انتظار لضمان تحديث useAuth hook
+      // انتظار قصير لضمان تحديث الحالة قبل التوجيه
       setTimeout(() => {
-        window.location.href = '/'; // استخدام window.location للتأكد من التحديث الكامل
-      }, 500);
+        navigate('/');
+      }, 200);
     } catch (error: any) {
       console.error('Login process error:', error);
       toast({
