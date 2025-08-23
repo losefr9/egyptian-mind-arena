@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Navbar } from '@/components/ui/navbar';
 
 interface MainLayoutProps {
@@ -8,12 +9,28 @@ interface MainLayoutProps {
 
 export const MainLayout = ({ children }: MainLayoutProps) => {
   const { user, isLoading, isLoggedIn } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  // إزالة شاشة التحميل لتسريع التطبيق - سيظهر الموقع فوراً
+  // توجيه الأدمن إلى لوحة التحكم مباشرة بعد تسجيل الدخول
+  useEffect(() => {
+    if (!isLoading && isLoggedIn && user?.role === 'admin') {
+      // إذا كان أدمن وليس في صفحة الأدمن، توجيهه إلى لوحة التحكم
+      if (!location.pathname.startsWith('/admin')) {
+        console.log('Admin user detected, redirecting to admin panel');
+        navigate('/admin', { replace: true });
+      }
+    }
+  }, [isLoggedIn, user?.role, isLoading, location.pathname, navigate]);
+
+  // إذا كان أدمن، لا نظهر له الـ layout العادي
+  if (isLoggedIn && user?.role === 'admin') {
+    return <>{children}</>;
+  }
 
   return (
     <div className="min-h-screen" dir="rtl">
-      {/* شريط التنقل العلوي دائماً ظاهر */}
+      {/* شريط التنقل العلوي للمستخدمين العاديين فقط */}
       <Navbar 
         isLoggedIn={isLoggedIn}
         username={user?.username || "مستخدم"}

@@ -11,6 +11,11 @@ import Games from "./pages/Games";
 import Deposit from "./pages/Deposit";
 import Withdraw from "./pages/Withdraw";
 import Admin from "./pages/Admin";
+import AdminUsers from "./pages/AdminUsers";
+import AdminDeposits from "./pages/AdminDeposits";
+import AdminWithdrawals from "./pages/AdminWithdrawals";
+import AdminNotifications from "./pages/AdminNotifications";
+import AdminSettings from "./pages/AdminSettings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +35,11 @@ const App = () => (
             <Route path="/deposit" element={<Deposit />} />
             <Route path="/withdraw" element={<Withdraw />} />
             <Route path="/admin" element={<Admin />} />
+            <Route path="/admin/users" element={<AdminUsers />} />
+            <Route path="/admin/deposits" element={<AdminDeposits />} />
+            <Route path="/admin/withdrawals" element={<AdminWithdrawals />} />
+            <Route path="/admin/notifications" element={<AdminNotifications />} />
+            <Route path="/admin/settings" element={<AdminSettings />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
