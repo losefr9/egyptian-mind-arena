@@ -64,14 +64,29 @@ const Login = () => {
       // Check if input is email or username
       let email = formData.username;
       
-      // If it's not an email, map username to email for admin accounts
+      // If it's not an email, try to find the email by username
       if (!formData.username.includes('@')) {
+        // Map special admin usernames to their emails
         if (formData.username === 'admin1') {
           email = '9bo5om9@gmail.com';
         } else if (formData.username === 'admin2') {
           email = 'totolosefr@gmail.com';
         } else {
-          throw new Error('اسم المستخدم غير صحيح');
+          // For other usernames, try to find their email using the database function
+          try {
+            const { data: emailData, error: emailError } = await supabase.rpc('get_user_email_by_username', {
+              username_input: formData.username
+            });
+            
+            if (emailError || !emailData || emailData.length === 0) {
+              throw new Error('اسم المستخدم غير صحيح أو غير موجود');
+            }
+            
+            email = emailData[0].email;
+          } catch (dbError) {
+            console.error('Error finding user by username:', dbError);
+            throw new Error('اسم المستخدم غير صحيح أو غير موجود');
+          }
         }
       }
 
