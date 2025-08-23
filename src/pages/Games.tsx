@@ -180,14 +180,20 @@ const Games = () => {
       }
 
       // تسجيل النشاط
-      await supabase
-        .from('player_match_activities')
-        .insert({
-          user_id: user.id,
-          game_session_id: currentGameSession?.id,
-          activity_type: 'game_joined',
-          activity_details: { bet_amount: amount, game_name: selectedGame.name }
-        });
+      const sessionId = existingSessions && existingSessions.length > 0 
+        ? existingSessions[0].id 
+        : currentGameSession?.id;
+
+      if (sessionId) {
+        await supabase
+          .from('player_match_activities')
+          .insert({
+            user_id: user.id,
+            game_session_id: sessionId,
+            activity_type: 'game_joined',
+            activity_details: { bet_amount: amount, game_name: selectedGame.name }
+          });
+      }
 
       toast.success('تم الانضمام للمباراة بنجاح!');
     } catch (error) {
@@ -231,17 +237,23 @@ const Games = () => {
         return selectedGame ? (
           <BettingLevels
             gameName={selectedGame.name}
+            gameId={selectedGame.id}
             onLevelSelect={handleBetLevelSelect}
             onBack={handleBackToGames}
           />
         ) : null;
       
       case 'waiting':
-        return selectedGame ? (
+        return selectedGame && currentGameSession ? (
           <WaitingScreen
             betAmount={selectedBetAmount}
             gameName={selectedGame.name}
+            gameSessionId={currentGameSession.id}
             onCancel={handleBackToBetting}
+            onMatchFound={(gameSession) => {
+              setCurrentGameSession(gameSession);
+              setViewState('playing');
+            }}
           />
         ) : null;
       
