@@ -68,7 +68,7 @@ export const Navbar = ({ isLoggedIn = false, username = "مستخدم", balance 
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-primary-glow bg-clip-text text-transparent">
-                العقل المصري
+                EFAR
               </h1>
             </div>
           </div>

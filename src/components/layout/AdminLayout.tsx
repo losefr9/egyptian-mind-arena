@@ -56,7 +56,7 @@ function AdminHeader() {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-primary">لوحة الإدارة</h1>
-                <p className="text-sm text-muted-foreground">العقل المصري</p>
+                <p className="text-sm text-muted-foreground">EFAR</p>
               </div>
             </div>
           </div>

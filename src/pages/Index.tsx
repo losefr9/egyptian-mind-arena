@@ -66,7 +66,7 @@ const Index = () => {
         <div className="text-center py-20">
           <div className="max-w-4xl mx-auto">
             <h1 className="text-6xl font-bold mb-6 bg-gradient-to-r from-primary to-primary-glow bg-clip-text text-transparent">
-              مرحباً بك في العقل المصري
+              مرحباً بك في EFAR
             </h1>
             <p className="text-2xl text-muted-foreground mb-8 leading-relaxed">
               منصة الألعاب الذكية الأولى في مصر
