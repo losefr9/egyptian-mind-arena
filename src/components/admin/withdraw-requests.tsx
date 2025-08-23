@@ -53,33 +53,55 @@ export const WithdrawRequests = () => {
 
   const fetchWithdrawRequests = async () => {
     try {
-      const { data, error } = await supabase
+      // First get all withdrawal requests
+      const { data: withdrawalsData, error: withdrawalsError } = await supabase
         .from('withdrawal_requests')
-        .select(`
-          id,
-          user_id,
-          amount,
-          withdrawal_method,
-          withdrawal_details,
-          status,
-          admin_notes,
-          created_at,
-          profiles (
-            username,
-            email,
-            balance
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setRequests((data as any) || []);
+      if (withdrawalsError) throw withdrawalsError;
+
+      if (!withdrawalsData || withdrawalsData.length === 0) {
+        setRequests([]);
+        return;
+      }
+
+      // Get all unique user IDs
+      const userIds = [...new Set(withdrawalsData.map(req => req.user_id))];
+
+      // Get user profiles for these IDs
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, username, email, balance')
+        .in('id', userIds);
+
+      if (profilesError) throw profilesError;
+
+      // Create a map of user profiles for quick lookup
+      const profilesMap = new Map();
+      profilesData?.forEach(profile => {
+        profilesMap.set(profile.id, profile);
+      });
+
+      // Combine the data
+      const requestsWithProfiles = withdrawalsData.map(request => ({
+        ...request,
+        profiles: profilesMap.get(request.user_id) || {
+          username: 'مجهول',
+          email: 'غير معروف',
+          balance: 0
+        }
+      }));
+
+      setRequests(requestsWithProfiles);
     } catch (error: any) {
+      console.error('Error fetching withdrawal requests:', error);
       toast({
         title: "خطأ",
         description: "فشل في تحميل طلبات السحب",
         variant: "destructive"
       });
+      setRequests([]);
     } finally {
       setIsLoading(false);
     }
