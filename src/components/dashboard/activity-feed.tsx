@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -10,6 +10,7 @@ import {
   TrendingDown,
   Clock
 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Activity {
   id: string;
@@ -24,55 +25,106 @@ interface ActivityFeedProps {
   activities?: Activity[];
 }
 
-const mockActivities: Activity[] = [
-  {
-    id: '1',
-    type: 'win',
-    description: 'فوز في لعبة الشطرنج',
-    amount: 150.00,
-    timestamp: '2024-01-15 14:30',
-    game: 'الشطرنج'
-  },
-  {
-    id: '2',
-    type: 'deposit',
-    description: 'إيداع في الحساب',
-    amount: 500.00,
-    timestamp: '2024-01-15 12:15'
-  },
-  {
-    id: '3',
-    type: 'loss',
-    description: 'خسارة في لعبة الداما',
-    amount: 75.00,
-    timestamp: '2024-01-15 11:45',
-    game: 'الداما'
-  },
-  {
-    id: '4',
-    type: 'win',
-    description: 'فوز في لعبة الذكاء السريع',
-    amount: 200.00,
-    timestamp: '2024-01-15 10:20',
-    game: 'الذكاء السريع'
-  },
-  {
-    id: '5',
-    type: 'withdrawal',
-    description: 'سحب من الحساب',
-    amount: 300.00,
-    timestamp: '2024-01-14 18:30'
-  },
-  {
-    id: '6',
-    type: 'game',
-    description: 'انضمام إلى لعبة جديدة',
-    timestamp: '2024-01-14 16:45',
-    game: 'بلوت الذكي'
-  }
-];
+export const ActivityFeed = ({ activities }: ActivityFeedProps) => {
+  const [userActivities, setUserActivities] = useState<Activity[]>([]);
+  const [loading, setLoading] = useState(true);
 
-export const ActivityFeed = ({ activities = mockActivities }: ActivityFeedProps) => {
+  useEffect(() => {
+    fetchUserActivities();
+  }, []);
+
+  const fetchUserActivities = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setUserActivities([]);
+        setLoading(false);
+        return;
+      }
+
+      // جلب نشاطات اللعب من جلسات الألعاب
+      const { data: gameSessions } = await supabase
+        .from('game_sessions')
+        .select('*')
+        .or(`player1_id.eq.${user.id},player2_id.eq.${user.id}`)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      // جلب طلبات الإيداع المؤكدة
+      const { data: deposits } = await supabase
+        .from('deposit_requests')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'approved')
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      // جلب طلبات السحب المؤكدة
+      const { data: withdrawals } = await supabase
+        .from('withdrawal_requests')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'approved')
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      const activities: Activity[] = [];
+
+      // إضافة أنشطة الألعاب
+      if (gameSessions) {
+        gameSessions.forEach(session => {
+          if (session.status === 'completed' && session.winner_id) {
+            const isWinner = session.winner_id === user.id;
+            activities.push({
+              id: session.id,
+              type: isWinner ? 'win' : 'loss',
+              description: isWinner ? 'فوز في اللعبة' : 'خسارة في اللعبة',
+              amount: session.bet_amount,
+              timestamp: new Date(session.completed_at || session.created_at).toLocaleString('ar-EG'),
+              game: 'لعبة ذكية'
+            });
+          }
+        });
+      }
+
+      // إضافة أنشطة الإيداع
+      if (deposits) {
+        deposits.forEach(deposit => {
+          activities.push({
+            id: deposit.id,
+            type: 'deposit',
+            description: 'إيداع في الحساب',
+            amount: deposit.amount,
+            timestamp: new Date(deposit.created_at).toLocaleString('ar-EG')
+          });
+        });
+      }
+
+      // إضافة أنشطة السحب
+      if (withdrawals) {
+        withdrawals.forEach(withdrawal => {
+          activities.push({
+            id: withdrawal.id,
+            type: 'withdrawal',
+            description: 'سحب من الحساب',
+            amount: withdrawal.amount,
+            timestamp: new Date(withdrawal.created_at).toLocaleString('ar-EG')
+          });
+        });
+      }
+
+      // ترتيب الأنشطة حسب التاريخ
+      activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+      setUserActivities(activities.slice(0, 6)); // أحدث 6 أنشطة
+    } catch (error) {
+      console.error('Error fetching activities:', error);
+      setUserActivities([]);
+    }
+    setLoading(false);
+  };
+
+  const displayActivities = activities || userActivities;
   const getActivityIcon = (type: string) => {
     switch (type) {
       case 'win':
@@ -116,8 +168,17 @@ export const ActivityFeed = ({ activities = mockActivities }: ActivityFeedProps)
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          {activities.map((activity) => (
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+          </div>
+        ) : displayActivities.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            لا توجد أنشطة حتى الآن
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {displayActivities.map((activity) => (
             <div 
               key={activity.id} 
               className="flex items-center justify-between p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
@@ -153,8 +214,9 @@ export const ActivityFeed = ({ activities = mockActivities }: ActivityFeedProps)
                 <p className="text-xs text-muted-foreground">{activity.timestamp}</p>
               </div>
             </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
