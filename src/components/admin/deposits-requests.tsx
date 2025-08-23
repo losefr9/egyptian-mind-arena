@@ -326,9 +326,12 @@ export const DepositsRequests = () => {
                               </DialogHeader>
                               <div className="text-center">
                                 <img 
-                                  src={`${supabase.storage.from('payment-receipts').getPublicUrl(request.receipt_image_url).data.publicUrl}`}
+                                  src={`https://axyhlyhcfvumtwpzgbgh.supabase.co/storage/v1/object/public/payment-receipts/${request.receipt_image_url}`}
                                   alt="إيصال الدفع"
                                   className="max-w-full h-auto rounded-lg"
+                                  onError={(e) => {
+                                    e.currentTarget.src = '/placeholder.svg';
+                                  }}
                                 />
                               </div>
                             </DialogContent>
