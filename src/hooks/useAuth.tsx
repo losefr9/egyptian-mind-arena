@@ -15,16 +15,39 @@ export const useAuth = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    checkAuth();
-    
-    // الاستماع لتغييرات حالة المصادقة
+    let mounted = true;
+
+    const initAuth = async () => {
+      try {
+        // التحقق من الجلسة الحالية أولاً
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user && mounted) {
+          console.log('Initial session found:', session.user.email);
+          await fetchUserProfile(session.user.id);
+          setIsLoggedIn(true);
+        }
+      } catch (error) {
+        console.error('Error checking initial auth:', error);
+      }
+      
+      if (mounted) {
+        setIsLoading(false);
+      }
+    };
+
+    // إعداد listener أولاً
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('Auth state changed:', event, session?.user?.email);
+        
+        if (!mounted) return;
+
         if (session?.user) {
+          console.log('User signed in, fetching profile...');
           await fetchUserProfile(session.user.id);
           setIsLoggedIn(true);
         } else {
+          console.log('User signed out');
           setUser(null);
           setIsLoggedIn(false);
         }
@@ -32,22 +55,14 @@ export const useAuth = () => {
       }
     );
 
-    return () => subscription.unsubscribe();
-  }, []);
+    // ثم التحقق من الجلسة الحالية
+    initAuth();
 
-  const checkAuth = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        await fetchUserProfile(session.user.id);
-        setIsLoggedIn(true);
-      }
-    } catch (error) {
-      console.error('Error checking auth:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const fetchUserProfile = async (userId: string) => {
     try {

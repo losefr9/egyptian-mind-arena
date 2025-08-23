@@ -29,11 +29,10 @@ const Login = () => {
     
     checkAuth();
 
-    // الاستماع لتغييرات حالة المصادقة
+    // إزالة التنقل التلقائي من listener لتجنب التضارب
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) {
-        navigate("/");
-      }
+      // لا نقوم بأي إجراء هنا لتجنب التضارب مع useAuth
+      console.log('Login page auth change:', event);
     });
 
     return () => subscription.unsubscribe();
@@ -96,10 +95,10 @@ const Login = () => {
         description: "مرحباً بعودتك إلى E-FAR!"
       });
 
-      // انتظار قصير لضمان تحديث الحالة قبل التوجيه
+      // انتظار لضمان تحديث useAuth hook
       setTimeout(() => {
-        navigate('/');
-      }, 100);
+        window.location.href = '/'; // استخدام window.location للتأكد من التحديث الكامل
+      }, 500);
     } catch (error: any) {
       console.error('Login process error:', error);
       toast({
