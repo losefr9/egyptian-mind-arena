@@ -206,10 +206,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "user_activity_log_admin_id_fkey"
+            columns: ["admin_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "user_activity_log_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_activity_log_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -279,12 +293,40 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      public_profiles: {
+        Row: {
+          id: string | null
+          losses: number | null
+          username: string | null
+          wins: number | null
+        }
+        Insert: {
+          id?: string | null
+          losses?: number | null
+          username?: string | null
+          wins?: number | null
+        }
+        Update: {
+          id?: string | null
+          losses?: number | null
+          username?: string | null
+          wins?: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       create_admin_auth_accounts: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      get_public_username: {
+        Args: { user_id_input: string }
+        Returns: {
+          losses: number
+          username: string
+          wins: number
+        }[]
       }
       get_user_email_by_username: {
         Args: { username_input: string }
