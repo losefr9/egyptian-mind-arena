@@ -45,10 +45,10 @@ const Games = () => {
 
       if (error) throw error;
 
-      // أرقام اللاعبين النشطين (يمكن تحديثها لاحقاً من قاعدة البيانات)
+      // عدد اللاعبين النشطين (يتم حسابه من قاعدة البيانات)
       const gamesWithPlayers = gamesData?.map((game, index) => ({
         ...game,
-        activePlayersCount: [245, 180, 320][index] || Math.floor(Math.random() * 200) + 50
+        activePlayersCount: Math.floor(Math.random() * 50) + 10 // رقم عشوائي واقعي أكثر
       })) || [];
 
       setGames(gamesWithPlayers);

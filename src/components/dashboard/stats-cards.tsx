@@ -9,7 +9,7 @@ interface StatsCardsProps {
   notifications: number;
 }
 
-export const StatsCards = ({ balance = 1250.50, wins = 47, notifications = 3 }: StatsCardsProps) => {
+export const StatsCards = ({ balance = 0, wins = 0, notifications = 0 }: StatsCardsProps) => {
   const getPlayerRank = (wins: number) => {
     if (wins < 10) return { rank: 'مبتدئ', color: 'secondary' };
     if (wins < 30) return { rank: 'متمكن', color: 'warning' };
