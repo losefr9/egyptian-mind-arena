@@ -5,15 +5,18 @@ import {
   Users, 
   Crown,
   Trophy,
-  Zap
+  Zap,
+  Gamepad2
 } from 'lucide-react';
 import { GameCard } from '@/components/games/game-card';
 import { BettingLevels } from '@/components/games/betting-levels';
 import { WaitingScreen } from '@/components/games/waiting-screen';
+import { XOGameArena } from '@/components/games/xo-game/xo-game-arena';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { toast } from 'sonner';
 
-type ViewState = 'games' | 'betting' | 'waiting';
+type ViewState = 'games' | 'betting' | 'waiting' | 'playing';
 
 interface Game {
   id: string;
@@ -23,6 +26,16 @@ interface Game {
   activePlayersCount?: number;
 }
 
+interface GameSession {
+  id: string;
+  bet_amount: number;
+  player1_id: string;
+  player2_id: string;
+  status: string;
+  prize_amount: number;
+  platform_fee_percentage: number;
+}
+
 const Games = () => {
   const { user, isLoading, isLoggedIn } = useAuth();
   const [viewState, setViewState] = useState<ViewState>('games');
@@ -30,6 +43,8 @@ const Games = () => {
   const [selectedBetAmount, setSelectedBetAmount] = useState<number>(0);
   const [games, setGames] = useState<Game[]>([]);
   const [totalActivePlayers, setTotalActivePlayers] = useState(0);
+  const [currentGameSession, setCurrentGameSession] = useState<GameSession | null>(null);
+  const [isMatchmaking, setIsMatchmaking] = useState(false);
 
   useEffect(() => {
     fetchGames();
@@ -48,13 +63,13 @@ const Games = () => {
       const { data: activeSessions } = await supabase
         .from('game_sessions')
         .select('game_id')
-        .eq('status', 'waiting');
+        .in('status', ['waiting', 'in_progress']);
 
       const gamesWithPlayers = gamesData?.map((game) => {
         const activeCount = activeSessions?.filter(session => session.game_id === game.id).length || 0;
         return {
           ...game,
-          activePlayersCount: activeCount + Math.floor(Math.random() * 5) + 1 // أضافة عدد صغير للواقعية
+          activePlayersCount: activeCount
         };
       }) || [];
 
@@ -65,7 +80,6 @@ const Games = () => {
       setTotalActivePlayers(total);
     } catch (error) {
       console.error('Error fetching games:', error);
-      // البيانات الاحتياطية في حالة الخطأ
       setGames([]);
       setTotalActivePlayers(0);
     }
@@ -76,20 +90,139 @@ const Games = () => {
     setViewState('betting');
   };
 
-  const handleBetLevelSelect = (amount: number) => {
+  const handleBetLevelSelect = async (amount: number) => {
+    if (!user || !selectedGame) return;
+
+    // التحقق من الرصيد
+    if (user.balance < amount) {
+      toast.error('رصيدك غير كافي لهذا الرهان');
+      return;
+    }
+
     setSelectedBetAmount(amount);
-    setViewState('waiting');
+    setIsMatchmaking(true);
+    
+    try {
+      // خصم مبلغ الرهان من الرصيد مؤقتاً
+      const { error: balanceError } = await supabase
+        .from('profiles')
+        .update({ balance: user.balance - amount })
+        .eq('id', user.id);
+
+      if (balanceError) throw balanceError;
+
+      // البحث عن مباراة متاحة أو إنشاء واحدة جديدة
+      const { data: existingSessions, error: searchError } = await supabase
+        .from('game_sessions')
+        .select('*')
+        .eq('game_id', selectedGame.id)
+        .eq('bet_amount', amount)
+        .eq('status', 'waiting')
+        .is('player2_id', null)
+        .limit(1);
+
+      if (searchError) throw searchError;
+
+      if (existingSessions && existingSessions.length > 0) {
+        // الانضمام لمباراة موجودة
+        const session = existingSessions[0];
+        const { error: joinError } = await supabase
+          .from('game_sessions')
+          .update({ 
+            player2_id: user.id,
+            status: 'in_progress',
+            started_at: new Date().toISOString(),
+            prize_amount: amount * 2,
+            platform_fee_percentage: 10
+          })
+          .eq('id', session.id);
+
+        if (joinError) throw joinError;
+
+        // إنشاء سجل المباراة
+        const { error: xoError } = await supabase
+          .from('xo_matches')
+          .insert({
+            game_session_id: session.id,
+            current_turn_player_id: session.player1_id,
+            match_status: 'waiting_for_question_answer'
+          });
+
+        if (xoError) throw xoError;
+
+        setCurrentGameSession({
+          ...session,
+          player2_id: user.id,
+          status: 'in_progress',
+          prize_amount: amount * 2,
+          platform_fee_percentage: 10
+        });
+        setViewState('playing');
+      } else {
+        // إنشاء مباراة جديدة
+        const { data: newSession, error: createError } = await supabase
+          .from('game_sessions')
+          .insert({
+            game_id: selectedGame.id,
+            player1_id: user.id,
+            bet_amount: amount,
+            status: 'waiting',
+            prize_amount: amount * 2,
+            platform_fee_percentage: 10
+          })
+          .select()
+          .single();
+
+        if (createError) throw createError;
+
+        setCurrentGameSession(newSession);
+        setViewState('waiting');
+      }
+
+      // تسجيل النشاط
+      await supabase
+        .from('player_match_activities')
+        .insert({
+          user_id: user.id,
+          game_session_id: currentGameSession?.id,
+          activity_type: 'game_joined',
+          activity_details: { bet_amount: amount, game_name: selectedGame.name }
+        });
+
+      toast.success('تم الانضمام للمباراة بنجاح!');
+    } catch (error) {
+      console.error('Error joining game:', error);
+      toast.error('خطأ في الانضمام للمباراة');
+      
+      // إرجاع الرصيد في حالة الخطأ
+      await supabase
+        .from('profiles')
+        .update({ balance: user.balance })
+        .eq('id', user.id);
+    } finally {
+      setIsMatchmaking(false);
+    }
   };
 
   const handleBackToGames = () => {
     setViewState('games');
     setSelectedGame(null);
     setSelectedBetAmount(0);
+    setCurrentGameSession(null);
   };
 
   const handleBackToBetting = () => {
     setViewState('betting');
     setSelectedBetAmount(0);
+    setCurrentGameSession(null);
+  };
+
+  const handleExitGame = () => {
+    setViewState('games');
+    setSelectedGame(null);
+    setSelectedBetAmount(0);
+    setCurrentGameSession(null);
+    fetchGames(); // تحديث البيانات
   };
 
   const renderContent = () => {
@@ -109,6 +242,14 @@ const Games = () => {
             betAmount={selectedBetAmount}
             gameName={selectedGame.name}
             onCancel={handleBackToBetting}
+          />
+        ) : null;
+      
+      case 'playing':
+        return currentGameSession ? (
+          <XOGameArena
+            gameSession={currentGameSession}
+            onExit={handleExitGame}
           />
         ) : null;
       
@@ -137,13 +278,21 @@ const Games = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {games.map((game) => (
-                <GameCard
-                  key={game.id}
-                  game={game}
-                  onClick={() => handleGameSelect(game)}
-                />
-              ))}
+              {games.length > 0 ? (
+                games.map((game) => (
+                  <GameCard
+                    key={game.id}
+                    game={game}
+                    onClick={() => handleGameSelect(game)}
+                  />
+                ))
+              ) : (
+                <div className="col-span-full text-center py-12">
+                  <Gamepad2 className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-xl font-semibold mb-2">لا توجد ألعاب متاحة حالياً</h3>
+                  <p className="text-muted-foreground">سيتم إضافة المزيد من الألعاب قريباً</p>
+                </div>
+              )}
             </div>
             
             <div className="mt-12 text-center">

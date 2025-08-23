@@ -455,6 +455,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_match_earnings: {
+        Args: { session_id: string; winner_user_id: string }
+        Returns: boolean
+      }
       create_admin_auth_accounts: {
         Args: Record<PropertyKey, never>
         Returns: undefined
@@ -485,6 +489,10 @@ export type Database = {
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
+      }
+      handle_draw_match: {
+        Args: { session_id: string }
+        Returns: boolean
       }
       has_role: {
         Args: {

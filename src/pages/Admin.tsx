@@ -18,9 +18,10 @@ import { WithdrawRequests } from '@/components/admin/withdraw-requests';
 import UsersManagement from '@/components/admin/users-management';
 import { PaymentGateways } from '@/components/admin/payment-gateways';
 import { Statistics } from '@/components/admin/statistics';
+import { PlatformEarnings } from '@/components/admin/platform-earnings';
 import { Notifications } from '@/components/admin/notifications';
 
-type AdminSection = 'deposits' | 'withdrawals' | 'users' | 'gateways' | 'statistics' | 'notifications';
+type AdminSection = 'deposits' | 'withdrawals' | 'users' | 'gateways' | 'statistics' | 'earnings' | 'notifications';
 
 const AdminContent = () => {
   const [activeSection, setActiveSection] = useState<AdminSection>('statistics');
@@ -31,7 +32,14 @@ const AdminContent = () => {
       title: 'الإحصائيات',
       icon: BarChart3,
       color: 'text-primary',
-      description: 'إحصائيات المنصة والأرباح'
+      description: 'إحصائيات المنصة والمستخدمين'
+    },
+    {
+      id: 'earnings' as AdminSection,
+      title: 'الأرباح',
+      icon: Wallet,
+      color: 'text-green-600',
+      description: 'أرباح المنصة والمعاملات'
     },
     {
       id: 'deposits' as AdminSection,
@@ -74,6 +82,8 @@ const AdminContent = () => {
     switch (activeSection) {
       case 'statistics':
         return <Statistics />;
+      case 'earnings':
+        return <PlatformEarnings />;
       case 'deposits':
         return <DepositsRequests />;
       case 'withdrawals':
