@@ -25,23 +25,31 @@ export const XOBoard: React.FC<XOBoardProps> = ({
         key={index}
         variant="outline"
         className={`
-          h-24 w-24 text-3xl font-bold transition-all duration-200
-          ${isClickable ? 'hover:bg-primary/10 hover:border-primary cursor-pointer' : 'cursor-not-allowed'}
-          ${value === 'X' ? 'text-red-500' : value === 'O' ? 'text-blue-500' : ''}
-          border-2
+          h-28 w-28 text-4xl font-bold transition-all duration-300 transform hover:scale-105
+          ${isClickable ? 'hover:bg-primary/10 hover:border-primary cursor-pointer animate-pulse' : 'cursor-not-allowed'}
+          ${value === 'X' ? 'text-red-500 bg-red-50 animate-bounce' : value === 'O' ? 'text-blue-500 bg-blue-50 animate-bounce' : ''}
+          ${value !== '' ? 'animate-scale-in' : ''}
+          border-2 shadow-lg
         `}
         onClick={() => isClickable && onCellClick(index)}
         disabled={!isClickable}
       >
-        {value === 'X' && <X size={32} />}
-        {value === 'O' && <Circle size={32} />}
+        {value === 'X' && <span className="animate-bounce">❌</span>}
+        {value === 'O' && <span className="animate-bounce">⭕</span>}
       </Button>
     );
   };
 
   return (
-    <div className="grid grid-cols-3 gap-2 p-4 bg-card rounded-lg border">
-      {board.map((cell, index) => renderCell(cell, index))}
+    <div className="bg-gradient-to-br from-primary/10 to-accent/10 p-8 rounded-xl border-4 border-primary/30 shadow-2xl">
+      <div className="grid grid-cols-3 gap-3 w-96 h-96 mx-auto">
+        {board.map((cell, index) => renderCell(cell, index))}
+      </div>
+      <div className="text-center mt-4">
+        <p className="text-sm text-muted-foreground animate-fade-in">
+          🎯 اختر مربعاً واجب على السؤال الرياضي!
+        </p>
+      </div>
     </div>
   );
 };

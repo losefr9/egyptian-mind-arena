@@ -131,7 +131,7 @@ export const BettingLevels: React.FC<BettingLevelsProps> = ({
                 <CardContent className="p-6">
                   <div className="text-center space-y-4">
                     <div className="text-3xl font-bold text-primary">
-                      {level.amount} ريال
+                      {level.amount} جنيه
                     </div>
                     
                     <div className="space-y-2">
@@ -150,7 +150,7 @@ export const BettingLevels: React.FC<BettingLevelsProps> = ({
                     
                     <div className="bg-muted/50 rounded-lg p-3 space-y-1">
                       <div className="text-sm font-medium">
-                        جائزة الفائز: {winAmount.toFixed(2)} ريال
+                        جائزة الفائز: {winAmount.toFixed(2)} جنيه
                       </div>
                       <div className="text-xs text-muted-foreground">
                         (بعد خصم 10% عمولة المنصة)

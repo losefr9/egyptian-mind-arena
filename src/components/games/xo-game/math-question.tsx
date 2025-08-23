@@ -81,14 +81,14 @@ export const MathQuestion: React.FC<MathQuestionProps> = ({
   const isCorrect = showResult && validationResult?.isCorrect;
 
   return (
-    <Card className="w-full max-w-md mx-auto bg-gradient-to-br from-primary/5 to-accent/5 border-primary/20">
+    <Card className="w-full max-w-md mx-auto bg-gradient-to-br from-primary/5 to-accent/5 border-primary/20 animate-scale-in">
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Calculator className="h-5 w-5 text-primary" />
-            <span>سؤال رياضي</span>
+            <Calculator className="h-5 w-5 text-primary animate-pulse" />
+            <span>🧮 سؤال رياضي</span>
           </div>
-          <div className={`flex items-center gap-2 ${getTimeColor()}`}>
+          <div className={`flex items-center gap-2 ${getTimeColor()} animate-pulse`}>
             <Timer className="h-4 w-4" />
             <span className="font-bold">{timeLeft}ث</span>
           </div>
@@ -97,21 +97,21 @@ export const MathQuestion: React.FC<MathQuestionProps> = ({
       
       <CardContent className="space-y-4">
         <div className="text-center">
-          <div className="text-2xl font-bold mb-4 p-4 bg-muted rounded-lg">
-            {question} = ?
+          <div className="text-2xl font-bold mb-4 p-4 bg-muted rounded-lg animate-fade-in">
+            🔢 {question} = ?
           </div>
         </div>
 
         {showResult ? (
-          <div className={`text-center p-4 rounded-lg ${isCorrect ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+          <div className={`text-center p-4 rounded-lg animate-scale-in ${isCorrect ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
             <div className="flex items-center justify-center gap-2 mb-2">
               {isCorrect ? (
-                <CheckCircle className="h-6 w-6 text-green-600" />
+                <CheckCircle className="h-6 w-6 text-green-600 animate-bounce" />
               ) : (
-                <XCircle className="h-6 w-6 text-red-600" />
+                <XCircle className="h-6 w-6 text-red-600 animate-pulse" />
               )}
               <span className="font-bold">
-                {isCorrect ? 'إجابة صحيحة!' : 'إجابة خاطئة!'}
+                {isCorrect ? '🎉 إجابة صحيحة!' : '❌ إجابة خاطئة!'}
               </span>
             </div>
             {!isCorrect && validationResult && (
@@ -136,16 +136,16 @@ export const MathQuestion: React.FC<MathQuestionProps> = ({
             
             <Button 
               type="submit" 
-              className="w-full"
+              className="w-full animate-pulse hover:animate-none"
               disabled={disabled || isAnswered || !userAnswer.trim() || timeLeft <= 0}
             >
-              إرسال الإجابة
+              🚀 إرسال الإجابة
             </Button>
           </form>
         )}
 
-        <div className="text-xs text-muted-foreground text-center">
-          أجب على السؤال لوضع علامتك على اللوحة
+        <div className="text-xs text-muted-foreground text-center animate-fade-in">
+          ⚡ أجب على السؤال بسرعة لوضع علامتك على اللوحة
         </div>
       </CardContent>
     </Card>
