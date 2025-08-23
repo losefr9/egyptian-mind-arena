@@ -6,7 +6,7 @@ import { Timer, Calculator, CheckCircle, XCircle } from 'lucide-react';
 
 interface MathQuestionProps {
   question: string;
-  correctAnswer: number;
+  questionId: string;
   timeLeft: number;
   onAnswer: (answer: number, isCorrect: boolean) => void;
   onTimeUp: () => void;
@@ -15,7 +15,7 @@ interface MathQuestionProps {
 
 export const MathQuestion: React.FC<MathQuestionProps> = ({
   question,
-  correctAnswer,
+  questionId,
   timeLeft,
   onAnswer,
   onTimeUp,
@@ -24,6 +24,7 @@ export const MathQuestion: React.FC<MathQuestionProps> = ({
   const [userAnswer, setUserAnswer] = useState('');
   const [isAnswered, setIsAnswered] = useState(false);
   const [showResult, setShowResult] = useState(false);
+  const [validationResult, setValidationResult] = useState<{isCorrect: boolean, correctAnswer: number} | null>(null);
 
   useEffect(() => {
     if (timeLeft <= 0 && !isAnswered) {
@@ -31,23 +32,44 @@ export const MathQuestion: React.FC<MathQuestionProps> = ({
     }
   }, [timeLeft, isAnswered, onTimeUp]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (disabled || isAnswered || !userAnswer.trim()) return;
 
     const answer = parseInt(userAnswer);
-    const isCorrect = answer === correctAnswer;
     
     setIsAnswered(true);
     setShowResult(true);
-    onAnswer(answer, isCorrect);
 
-    // إخفاء النتيجة بعد ثانيتين
-    setTimeout(() => {
-      setShowResult(false);
-      setIsAnswered(false);
-      setUserAnswer('');
-    }, 2000);
+    // استيراد supabase للتحقق من الإجابة
+    const { supabase } = await import('@/integrations/supabase/client');
+    
+    try {
+      const { data, error } = await supabase.rpc('validate_math_answer', {
+        question_id: questionId,
+        user_answer: answer
+      });
+
+      if (error) throw error;
+
+      const result = data?.[0];
+      const isCorrect = result?.is_correct || false;
+      const correctAnswer = result?.correct_answer || 0;
+
+      setValidationResult({ isCorrect, correctAnswer });
+      onAnswer(answer, isCorrect);
+
+      // إخفاء النتيجة بعد ثانيتين
+      setTimeout(() => {
+        setShowResult(false);
+        setIsAnswered(false);
+        setUserAnswer('');
+        setValidationResult(null);
+      }, 2000);
+    } catch (error) {
+      console.error('Error validating answer:', error);
+      onAnswer(answer, false);
+    }
   };
 
   const getTimeColor = () => {
@@ -56,7 +78,7 @@ export const MathQuestion: React.FC<MathQuestionProps> = ({
     return 'text-green-500';
   };
 
-  const isCorrect = showResult && parseInt(userAnswer) === correctAnswer;
+  const isCorrect = showResult && validationResult?.isCorrect;
 
   return (
     <Card className="w-full max-w-md mx-auto bg-gradient-to-br from-primary/5 to-accent/5 border-primary/20">
@@ -92,9 +114,9 @@ export const MathQuestion: React.FC<MathQuestionProps> = ({
                 {isCorrect ? 'إجابة صحيحة!' : 'إجابة خاطئة!'}
               </span>
             </div>
-            {!isCorrect && (
+            {!isCorrect && validationResult && (
               <div className="text-sm">
-                الإجابة الصحيحة: {correctAnswer}
+                الإجابة الصحيحة: {validationResult.correctAnswer}
               </div>
             )}
           </div>

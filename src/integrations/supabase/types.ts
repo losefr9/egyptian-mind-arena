@@ -463,6 +463,14 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      get_math_question_by_id: {
+        Args: { question_id: string }
+        Returns: {
+          difficulty_level: number
+          id: string
+          question: string
+        }[]
+      }
       get_public_profiles: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -478,6 +486,14 @@ export type Database = {
           losses: number
           username: string
           wins: number
+        }[]
+      }
+      get_random_math_question: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          difficulty_level: number
+          id: string
+          question: string
         }[]
       }
       get_user_email_by_username: {
@@ -517,6 +533,13 @@ export type Database = {
       update_user_balance: {
         Args: { _amount: number; _operation: string; _user_id: string }
         Returns: boolean
+      }
+      validate_math_answer: {
+        Args: { question_id: string; user_answer: number }
+        Returns: {
+          correct_answer: number
+          is_correct: boolean
+        }[]
       }
     }
     Enums: {

@@ -56,20 +56,20 @@ export const XOGameArena: React.FC<XOGameArenaProps> = ({ gameSession, onExit })
     return board.every(cell => cell !== '') ? 'draw' : null;
   };
 
-  // تحميل سؤال رياضي جديد
+  // تحميل سؤال رياضي جديد باستخدام الدالة الآمنة
   const loadNewQuestion = async () => {
     try {
-      const { data, error } = await supabase
-        .from('math_questions')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(10);
+      const { data, error } = await supabase.rpc('get_random_math_question');
 
       if (error) throw error;
 
       if (data && data.length > 0) {
-        const randomQuestion = data[Math.floor(Math.random() * data.length)];
-        setMathQuestion(randomQuestion);
+        const questionData = data[0];
+        setMathQuestion({
+          id: questionData.id,
+          question: questionData.question,
+          answer: 0 // لا نحصل على الإجابة من العميل
+        });
         setTimeLeft(30);
         setWaitingForAnswer(true);
       }
@@ -89,42 +89,57 @@ export const XOGameArena: React.FC<XOGameArenaProps> = ({ gameSession, onExit })
 
   // معالجة الإجابة على السؤال
   const handleMathAnswer = async (answer: number, isCorrect: boolean) => {
-    if (selectedCell === null) return;
+    if (selectedCell === null || !mathQuestion) return;
 
     setWaitingForAnswer(false);
 
-    if (isCorrect) {
-      // وضع العلامة على اللوحة
-      const newBoard = [...board];
-      newBoard[selectedCell] = playerSymbol;
-      setBoard(newBoard);
-
-      // التحقق من الفوز
-      const result = checkWinner(newBoard);
-      if (result) {
-        if (result === 'draw') {
-          setGameStatus('draw');
-          await handleGameEnd('draw');
-        } else {
-          setGameStatus('won');
-          setWinner(result === playerSymbol ? user?.id : getOpponentId());
-          await handleGameEnd('win', result === playerSymbol ? user?.id : getOpponentId());
-        }
-      } else {
-        // تغيير الدور
-        setCurrentTurn(currentTurn === gameSession.player1_id ? gameSession.player2_id : gameSession.player1_id);
-      }
-
-      // تسجيل النشاط
-      await logActivity('move_made', {
-        cell: selectedCell,
-        symbol: playerSymbol,
-        question: mathQuestion?.question,
-        answer: answer,
-        board: newBoard
+    // التحقق من صحة الإجابة باستخدام الدالة الآمنة
+    try {
+      const { data: validationData, error: validationError } = await supabase.rpc('validate_math_answer', {
+        question_id: mathQuestion.id,
+        user_answer: answer
       });
-    } else {
-      toast.error('إجابة خاطئة! تم تجديد السؤال');
+
+      if (validationError) throw validationError;
+
+      const actualIsCorrect = validationData?.[0]?.is_correct || false;
+
+      if (actualIsCorrect) {
+        // وضع العلامة على اللوحة
+        const newBoard = [...board];
+        newBoard[selectedCell] = playerSymbol;
+        setBoard(newBoard);
+
+        // التحقق من الفوز
+        const result = checkWinner(newBoard);
+        if (result) {
+          if (result === 'draw') {
+            setGameStatus('draw');
+            await handleGameEnd('draw');
+          } else {
+            setGameStatus('won');
+            setWinner(result === playerSymbol ? user?.id : getOpponentId());
+            await handleGameEnd('win', result === playerSymbol ? user?.id : getOpponentId());
+          }
+        } else {
+          // تغيير الدور
+          setCurrentTurn(currentTurn === gameSession.player1_id ? gameSession.player2_id : gameSession.player1_id);
+        }
+
+        // تسجيل النشاط
+        await logActivity('move_made', {
+          cell: selectedCell,
+          symbol: playerSymbol,
+          question: mathQuestion?.question,
+          answer: answer,
+          board: newBoard
+        });
+      } else {
+        toast.error('إجابة خاطئة! تم تجديد السؤال');
+      }
+    } catch (error) {
+      console.error('Error validating answer:', error);
+      toast.error('خطأ في التحقق من الإجابة');
     }
 
     setSelectedCell(null);
@@ -298,7 +313,7 @@ export const XOGameArena: React.FC<XOGameArenaProps> = ({ gameSession, onExit })
           {waitingForAnswer && mathQuestion ? (
             <MathQuestion
               question={mathQuestion.question}
-              correctAnswer={mathQuestion.answer}
+              questionId={mathQuestion.id}
               timeLeft={timeLeft}
               onAnswer={handleMathAnswer}
               onTimeUp={handleTimeUp}
