@@ -69,10 +69,14 @@ export type Database = {
           created_at: string
           game_id: string
           id: string
+          platform_earnings: number | null
+          platform_fee_percentage: number | null
           player1_id: string | null
           player2_id: string | null
+          prize_amount: number | null
           started_at: string | null
           status: string | null
+          winner_earnings: number | null
           winner_id: string | null
         }
         Insert: {
@@ -81,10 +85,14 @@ export type Database = {
           created_at?: string
           game_id: string
           id?: string
+          platform_earnings?: number | null
+          platform_fee_percentage?: number | null
           player1_id?: string | null
           player2_id?: string | null
+          prize_amount?: number | null
           started_at?: string | null
           status?: string | null
+          winner_earnings?: number | null
           winner_id?: string | null
         }
         Update: {
@@ -93,10 +101,14 @@ export type Database = {
           created_at?: string
           game_id?: string
           id?: string
+          platform_earnings?: number | null
+          platform_fee_percentage?: number | null
           player1_id?: string | null
           player2_id?: string | null
+          prize_amount?: number | null
           started_at?: string | null
           status?: string | null
+          winner_earnings?: number | null
           winner_id?: string | null
         }
         Relationships: [
@@ -135,6 +147,113 @@ export type Database = {
           name?: string
         }
         Relationships: []
+      }
+      math_questions: {
+        Row: {
+          answer: number
+          created_at: string | null
+          difficulty_level: number | null
+          id: string
+          question: string
+        }
+        Insert: {
+          answer: number
+          created_at?: string | null
+          difficulty_level?: number | null
+          id?: string
+          question: string
+        }
+        Update: {
+          answer?: number
+          created_at?: string | null
+          difficulty_level?: number | null
+          id?: string
+          question?: string
+        }
+        Relationships: []
+      }
+      platform_earnings: {
+        Row: {
+          created_at: string | null
+          earning_amount: number
+          earning_date: string | null
+          earning_percentage: number | null
+          game_session_id: string | null
+          id: string
+          total_bet_amount: number
+        }
+        Insert: {
+          created_at?: string | null
+          earning_amount: number
+          earning_date?: string | null
+          earning_percentage?: number | null
+          game_session_id?: string | null
+          id?: string
+          total_bet_amount: number
+        }
+        Update: {
+          created_at?: string | null
+          earning_amount?: number
+          earning_date?: string | null
+          earning_percentage?: number | null
+          game_session_id?: string | null
+          id?: string
+          total_bet_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_earnings_game_session_id_fkey"
+            columns: ["game_session_id"]
+            isOneToOne: false
+            referencedRelation: "game_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      player_match_activities: {
+        Row: {
+          activity_details: Json | null
+          activity_type: string
+          created_at: string | null
+          earning_amount: number | null
+          game_session_id: string | null
+          id: string
+          user_id: string | null
+        }
+        Insert: {
+          activity_details?: Json | null
+          activity_type: string
+          created_at?: string | null
+          earning_amount?: number | null
+          game_session_id?: string | null
+          id?: string
+          user_id?: string | null
+        }
+        Update: {
+          activity_details?: Json | null
+          activity_type?: string
+          created_at?: string | null
+          earning_amount?: number | null
+          game_session_id?: string | null
+          id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_match_activities_game_session_id_fkey"
+            columns: ["game_session_id"]
+            isOneToOne: false
+            referencedRelation: "game_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_match_activities_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -276,6 +395,60 @@ export type Database = {
           withdrawal_method?: string
         }
         Relationships: []
+      }
+      xo_matches: {
+        Row: {
+          board_state: Json | null
+          created_at: string | null
+          current_question_id: string | null
+          current_turn_player_id: string | null
+          game_session_id: string | null
+          id: string
+          match_status: string | null
+          move_deadline: string | null
+          question_start_time: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          board_state?: Json | null
+          created_at?: string | null
+          current_question_id?: string | null
+          current_turn_player_id?: string | null
+          game_session_id?: string | null
+          id?: string
+          match_status?: string | null
+          move_deadline?: string | null
+          question_start_time?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          board_state?: Json | null
+          created_at?: string | null
+          current_question_id?: string | null
+          current_turn_player_id?: string | null
+          game_session_id?: string | null
+          id?: string
+          match_status?: string | null
+          move_deadline?: string | null
+          question_start_time?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xo_matches_current_question_id_fkey"
+            columns: ["current_question_id"]
+            isOneToOne: false
+            referencedRelation: "math_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "xo_matches_game_session_id_fkey"
+            columns: ["game_session_id"]
+            isOneToOne: false
+            referencedRelation: "game_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
