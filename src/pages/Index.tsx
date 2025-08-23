@@ -22,7 +22,7 @@ const Index = () => {
 
   const fetchUserStats = async () => {
     try {
-      // جلب إحصائيات المستخدم الحقيقية
+      // جلب اإحصائيات المستخدم الحقيقية
       const { data: profile } = await supabase
         .from('profiles')
         .select('wins, losses')
