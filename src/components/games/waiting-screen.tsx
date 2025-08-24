@@ -35,64 +35,117 @@ export const WaitingScreen: React.FC<WaitingScreenProps> = ({
   useEffect(() => {
     if (!gameSessionId || !user) return;
 
-    // إعداد الاشتراك في الوقت الحقيقي
-    const channel = supabase
-      .channel('game-session-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'game_sessions',
-          filter: `id=eq.${gameSessionId}`
-        },
-        (payload) => {
-          console.log('Game session updated:', payload);
-          const updatedSession = payload.new;
-          
-          if (updatedSession.status === 'in_progress' && updatedSession.player2_id) {
+    // التحقق إذا كانت جلسة مؤقتة (في قائمة الانتظار)
+    const isTemporarySession = gameSessionId.startsWith('temp-');
+
+    if (isTemporarySession) {
+      // للجلسات المؤقتة، نراقب player_queue للحصول على المطابقة
+      const queueChannel = supabase
+        .channel('queue-match-updates')
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'player_queue',
+            filter: `user_id=eq.${user.id}`
+          },
+          async (payload) => {
+            console.log('Queue updated:', payload);
+            const queueEntry = payload.new;
+            
+            if (queueEntry.status === 'matched' && queueEntry.match_session_id) {
+              // تم العثور على مطابقة
+              try {
+                const { data: sessionData, error } = await supabase
+                  .from('game_sessions')
+                  .select('*')
+                  .eq('id', queueEntry.match_session_id)
+                  .single();
+
+                if (!error && sessionData) {
+                  setStatus('found');
+                  setTimeout(() => {
+                    onMatchFound(sessionData);
+                  }, 2000);
+                }
+              } catch (error) {
+                console.error('Error fetching matched session:', error);
+              }
+            }
+          }
+        )
+        .subscribe();
+
+      // انتهاء صلاحية البحث بعد 5 دقائق
+      const timeoutTimer = setTimeout(() => {
+        setStatus('timeout');
+      }, 300000);
+
+      return () => {
+        queueChannel.unsubscribe();
+        clearTimeout(timeoutTimer);
+      };
+    } else {
+      // للجلسات الحقيقية، نراقب game_sessions
+      const sessionChannel = supabase
+        .channel('game-session-updates')
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'game_sessions',
+            filter: `id=eq.${gameSessionId}`
+          },
+          (payload) => {
+            console.log('Game session updated:', payload);
+            const updatedSession = payload.new;
+            
+            if (updatedSession.status === 'in_progress' && updatedSession.player2_id) {
+              setStatus('found');
+              setTimeout(() => {
+                onMatchFound(updatedSession);
+              }, 2000);
+            }
+          }
+        )
+        .subscribe();
+
+      // فحص حالة الجلسة مرة واحدة عند التحميل
+      const checkInitialStatus = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('game_sessions')
+            .select('*')
+            .eq('id', gameSessionId)
+            .maybeSingle();
+
+          if (error) throw error;
+
+          if (data && data.status === 'in_progress' && data.player2_id) {
             setStatus('found');
             setTimeout(() => {
-              onMatchFound(updatedSession);
-            }, 2000);
+              onMatchFound(data);
+            }, 1000);
           }
+        } catch (error) {
+          console.error('Error checking initial session status:', error);
         }
-      )
-      .subscribe();
+      };
 
-    // فحص حالة الجلسة مرة واحدة عند التحميل
-    const checkInitialStatus = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('game_sessions')
-          .select('*')
-          .eq('id', gameSessionId)
-          .maybeSingle();
+      checkInitialStatus();
+      
+      // انتهاء صلاحية البحث بعد 5 دقائق
+      const timeoutTimer = setTimeout(() => {
+        setStatus('timeout');
+      }, 300000);
 
-        if (error) throw error;
-
-        if (data && data.status === 'in_progress' && data.player2_id) {
-          setStatus('found');
-          setTimeout(() => {
-            onMatchFound(data);
-          }, 1000);
-        }
-      } catch (error) {
-        console.error('Error checking initial session status:', error);
-      }
-    };
-
-    checkInitialStatus();
-    
-    // انتهاء صلاحية البحث بعد 5 دقائق
-    const timeoutTimer = setTimeout(() => {
-      setStatus('timeout');
-    }, 300000); // 5 دقائق
-
-    return () => {
-      channel.unsubscribe();
-      clearTimeout(timeoutTimer);
-    };
+      return () => {
+        sessionChannel.unsubscribe();
+        clearTimeout(timeoutTimer);
+      };
+    }
   }, [gameSessionId, onMatchFound, user]);
 
   const formatTime = (seconds: number) => {
@@ -102,21 +155,31 @@ export const WaitingScreen: React.FC<WaitingScreenProps> = ({
   };
 
   const handleCancelSearch = async () => {
-    if (gameSessionId) {
+    if (gameSessionId && user) {
       try {
-        // حذف الجلسة وإرجاع الرصيد
-        await supabase
-          .from('game_sessions')
-          .delete()
-          .eq('id', gameSessionId);
+        // استخدام النظام الجديد لإلغاء الماتشينق
+        const { data: cancelResult, error: cancelError } = await supabase.rpc(
+          'cancel_matchmaking',
+          {
+            p_user_id: user.id,
+            p_game_id: (gameSessionId.startsWith('temp-') ? null : gameSessionId), // إذا كان مؤقت
+            p_bet_amount: betAmount
+          }
+        );
 
-        // إرجاع الرصيد
-        if (user) {
-          await supabase
-            .from('profiles')
-            .update({ balance: user.balance + betAmount })
-            .eq('id', user.id);
+        if (cancelError) {
+          console.error('Error canceling matchmaking:', cancelError);
         }
+
+        // إذا كانت جلسة مؤقتة، لا نحتاج لحذف شيء من قاعدة البيانات
+        if (!gameSessionId.startsWith('temp-')) {
+          // حذف الجلسة الحقيقية
+          await supabase
+            .from('game_sessions')
+            .delete()
+            .eq('id', gameSessionId);
+        }
+
       } catch (error) {
         console.error('Error canceling search:', error);
       }

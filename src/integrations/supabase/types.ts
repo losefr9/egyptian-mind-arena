@@ -255,6 +255,42 @@ export type Database = {
           },
         ]
       }
+      player_queue: {
+        Row: {
+          bet_amount: number
+          created_at: string
+          game_id: string
+          id: string
+          match_session_id: string | null
+          matched_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bet_amount: number
+          created_at?: string
+          game_id: string
+          id?: string
+          match_session_id?: string | null
+          matched_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bet_amount?: number
+          created_at?: string
+          game_id?: string
+          id?: string
+          match_session_id?: string | null
+          matched_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           balance: number | null
@@ -459,9 +495,17 @@ export type Database = {
         Args: { session_id: string; winner_user_id: string }
         Returns: boolean
       }
+      cancel_matchmaking: {
+        Args: { p_bet_amount: number; p_game_id: string; p_user_id: string }
+        Returns: Json
+      }
       create_admin_auth_accounts: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      find_match_and_create_session: {
+        Args: { p_bet_amount: number; p_game_id: string; p_user_id: string }
+        Returns: Json
       }
       generate_random_math_question: {
         Args: Record<PropertyKey, never>
@@ -492,10 +536,12 @@ export type Database = {
       get_public_username: {
         Args: { user_id_input: string }
         Returns: {
-          losses: number
           username: string
-          wins: number
         }[]
+      }
+      get_queue_stats: {
+        Args: { p_game_id?: string }
+        Returns: Json
       }
       get_random_math_question: {
         Args: Record<PropertyKey, never>

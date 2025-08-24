@@ -93,119 +93,81 @@ const Games = () => {
   const handleBetLevelSelect = async (amount: number) => {
     if (!user || !selectedGame) return;
 
-    // التحقق من الرصيد
-    if (user.balance < amount) {
-      toast.error('رصيدك غير كافي لهذا الرهان');
-      return;
-    }
-
     setSelectedBetAmount(amount);
     setIsMatchmaking(true);
     
     try {
-      // خصم مبلغ الرهان من الرصيد مؤقتاً
-      const { error: balanceError } = await supabase
-        .from('profiles')
-        .update({ balance: user.balance - amount })
-        .eq('id', user.id);
+      // استخدام النظام الجديد للماتشينق
+      const { data: matchResult, error: matchError } = await supabase.rpc(
+        'find_match_and_create_session',
+        {
+          p_user_id: user.id,
+          p_game_id: selectedGame.id,
+          p_bet_amount: amount
+        }
+      );
 
-      if (balanceError) throw balanceError;
+      if (matchError) throw matchError;
 
-      // البحث عن مباراة متاحة أو إنشاء واحدة جديدة
-      const { data: existingSessions, error: searchError } = await supabase
-        .from('game_sessions')
-        .select('*')
-        .eq('game_id', selectedGame.id)
-        .eq('bet_amount', amount)
-        .eq('status', 'waiting')
-        .is('player2_id', null)
-        .neq('player1_id', user.id) // تجنب ربط اللاعب مع نفسه
-        .limit(1);
+      const result = matchResult[0] || matchResult;
 
-      if (searchError) throw searchError;
+      if (!result.success) {
+        toast.error(result.message || 'خطأ في الماتشينق');
+        return;
+      }
 
-      if (existingSessions && existingSessions.length > 0) {
-        // الانضمام لمباراة موجودة
-        const session = existingSessions[0];
-        const { error: joinError } = await supabase
-          .from('game_sessions')
-          .update({ 
-            player2_id: user.id,
-            status: 'in_progress',
-            started_at: new Date().toISOString(),
-            prize_amount: amount * 2,
-            platform_fee_percentage: 10
-          })
-          .eq('id', session.id);
-
-        if (joinError) throw joinError;
-
-        // إنشاء سجل المباراة
-        const { error: xoError } = await supabase
-          .from('xo_matches')
-          .insert({
-            game_session_id: session.id,
-            current_turn_player_id: session.player1_id,
-            match_status: 'waiting_for_question_answer'
-          });
-
-        if (xoError) throw xoError;
-
-        setCurrentGameSession({
-          ...session,
-          player2_id: user.id,
-          status: 'in_progress',
+      if (result.action === 'queued') {
+        // تم إضافة اللاعب لقائمة الانتظار
+        toast.success('تم إضافتك لقائمة الانتظار - جاري البحث عن خصم...');
+        
+        // إنشاء جلسة مؤقتة للانتظار
+        const tempSession = {
+          id: 'temp-' + Date.now(),
+          game_id: selectedGame.id,
+          player1_id: user.id,
+          player2_id: null,
+          bet_amount: amount,
+          status: 'waiting',
           prize_amount: amount * 2,
           platform_fee_percentage: 10
-        });
-        setViewState('playing');
-      } else {
-        // إنشاء مباراة جديدة
-        const { data: newSession, error: createError } = await supabase
+        };
+        
+        setCurrentGameSession(tempSession);
+        setViewState('waiting');
+      } else if (result.action === 'matched') {
+        // تم العثور على خصم - الحصول على بيانات الجلسة
+        const { data: sessionData, error: sessionError } = await supabase
           .from('game_sessions')
-          .insert({
-            game_id: selectedGame.id,
-            player1_id: user.id,
-            bet_amount: amount,
-            status: 'waiting',
-            prize_amount: amount * 2,
-            platform_fee_percentage: 10
-          })
-          .select()
+          .select('*')
+          .eq('id', result.session_id)
           .single();
 
-        if (createError) throw createError;
+        if (sessionError) throw sessionError;
 
-        setCurrentGameSession(newSession);
-        setViewState('waiting');
+        setCurrentGameSession(sessionData);
+        setViewState('playing');
+        toast.success('تم العثور على خصم! جاري بدء المباراة...');
       }
 
       // تسجيل النشاط
-      const sessionId = existingSessions && existingSessions.length > 0 
-        ? existingSessions[0].id 
-        : currentGameSession?.id;
-
-      if (sessionId) {
+      if (result.session_id) {
         await supabase
           .from('player_match_activities')
           .insert({
             user_id: user.id,
-            game_session_id: sessionId,
+            game_session_id: result.session_id,
             activity_type: 'game_joined',
-            activity_details: { bet_amount: amount, game_name: selectedGame.name }
+            activity_details: { 
+              bet_amount: amount, 
+              game_name: selectedGame.name,
+              action: result.action
+            }
           });
       }
 
-      toast.success('تم الانضمام للمباراة بنجاح!');
     } catch (error) {
-      console.error('Error joining game:', error);
-      toast.error('خطأ في الانضمام للمباراة');
-      
-      // إرجاع الرصيد في حالة الخطأ
-      await supabase
-        .from('profiles')
-        .update({ balance: user.balance })
-        .eq('id', user.id);
+      console.error('Error in matchmaking:', error);
+      toast.error('خطأ في البحث عن مباراة');
     } finally {
       setIsMatchmaking(false);
     }
