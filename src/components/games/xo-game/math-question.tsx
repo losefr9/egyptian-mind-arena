@@ -81,24 +81,49 @@ export const MathQuestion: React.FC<MathQuestionProps> = ({
   const isCorrect = showResult && validationResult?.isCorrect;
 
   return (
-    <Card className="w-full max-w-md mx-auto bg-gradient-to-br from-primary/5 to-accent/5 border-primary/20 animate-scale-in">
-      <CardHeader className="pb-2 sm:pb-6">
-        <CardTitle className="flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-0">
-          <div className="flex items-center gap-2">
-            <Calculator className="h-4 w-4 sm:h-5 sm:w-5 text-primary animate-pulse" />
-            <span className="text-sm sm:text-base">🧮 سؤال رياضي</span>
-          </div>
-          <div className={`flex items-center gap-2 ${getTimeColor()} animate-pulse`}>
-            <Timer className="h-3 w-3 sm:h-4 sm:w-4" />
-            <span className="font-bold text-sm sm:text-base">{timeLeft}ث</span>
-          </div>
-        </CardTitle>
-      </CardHeader>
+    <div className="relative">
+      {/* خلفية متحركة */}
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/30 via-accent/20 to-primary/30 rounded-xl blur-sm animate-pulse"></div>
+      
+      <Card className="relative w-full max-w-md mx-auto bg-gradient-to-br from-background/95 to-muted/20 backdrop-blur-sm border-primary/30 shadow-2xl animate-scale-in overflow-hidden">
+        {/* شريط الوقت العلوي */}
+        <div className="h-2 bg-gradient-to-r from-muted to-muted">
+          <div 
+            className={`h-full transition-all duration-1000 ${getTimeColor()} bg-current`}
+            style={{ width: `${(timeLeft / 20) * 100}%` }}
+          ></div>
+        </div>
+        
+        <CardHeader className="pb-2 sm:pb-6 relative">
+          <CardTitle className="flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-0">
+            <div className="flex items-center gap-2">
+              <Calculator className="h-4 w-4 sm:h-5 sm:w-5 text-primary animate-spin-slow" />
+              <span className="text-sm sm:text-base font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                🧮 سؤال رياضي سريع
+              </span>
+            </div>
+            <div className={`flex items-center gap-2 ${getTimeColor()} font-bold`}>
+              <Timer className={`h-4 w-4 ${timeLeft <= 5 ? 'animate-pulse' : 'animate-spin'}`} />
+              <span className={`text-lg ${timeLeft <= 5 ? 'animate-bounce' : ''}`}>
+                {timeLeft}ث
+              </span>
+            </div>
+          </CardTitle>
+        </CardHeader>
       
       <CardContent className="space-y-3 sm:space-y-4 pt-0">
         <div className="text-center">
-          <div className="text-lg sm:text-2xl font-bold mb-3 sm:mb-4 p-3 sm:p-4 bg-muted rounded-lg animate-fade-in">
-            🔢 {question}
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-accent/10 rounded-lg blur-sm"></div>
+            <div className="relative text-lg sm:text-2xl font-bold mb-3 sm:mb-4 p-4 sm:p-6 bg-gradient-to-br from-muted/50 to-background/80 backdrop-blur-sm rounded-lg border-2 border-primary/20 shadow-lg animate-fade-in">
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <span className="text-2xl animate-bounce">🔢</span>
+                <span className="text-primary">حل هذه المعادلة:</span>
+              </div>
+              <div className="text-2xl sm:text-3xl font-black text-center p-2 bg-primary/10 rounded-lg border border-primary/30">
+                {question}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -149,6 +174,7 @@ export const MathQuestion: React.FC<MathQuestionProps> = ({
           ⚡ أجب على السؤال بسرعة لوضع علامتك على اللوحة
         </div>
       </CardContent>
-    </Card>
+      </Card>
+    </div>
   );
 };
