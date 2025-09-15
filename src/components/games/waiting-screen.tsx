@@ -77,10 +77,10 @@ export const WaitingScreen: React.FC<WaitingScreenProps> = ({
         )
         .subscribe();
 
-      // انتهاء صلاحية البحث بعد 5 دقائق
+      // انتهاء صلاحية البحث بعد دقيقتين (تحسين)
       const timeoutTimer = setTimeout(() => {
         setStatus('timeout');
-      }, 300000);
+      }, 120000);
 
       return () => {
         queueChannel.unsubscribe();
@@ -136,10 +136,10 @@ export const WaitingScreen: React.FC<WaitingScreenProps> = ({
 
       checkInitialStatus();
       
-      // انتهاء صلاحية البحث بعد 5 دقائق
+      // انتهاء صلاحية البحث بعد دقيقتين (تحسين)
       const timeoutTimer = setTimeout(() => {
         setStatus('timeout');
-      }, 300000);
+      }, 120000);
 
       return () => {
         sessionChannel.unsubscribe();

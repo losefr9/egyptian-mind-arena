@@ -279,14 +279,36 @@ export const XOGameArena: React.FC<XOGameArenaProps> = ({ gameSession, onExit })
             <div className="flex flex-wrap items-center gap-2 justify-center sm:justify-start bg-blue-50 dark:bg-blue-950 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
               <Users className="h-4 w-4 text-blue-500 animate-pulse" />
               <span className="text-xs sm:text-sm font-medium">اللاعبون:</span>
-              <div className="flex flex-wrap gap-1 items-center">
-                <Badge variant={gameSession.player1_id === user?.id ? 'default' : 'secondary'} className={`text-xs transition-all duration-300 ${gameSession.player1_id === user?.id ? 'animate-pulse bg-primary' : ''}`}>
-                  {player1Username} ❌
-                </Badge>
-                <span className="text-muted-foreground text-xs font-bold">vs</span>
-                <Badge variant={gameSession.player2_id === user?.id ? 'default' : 'secondary'} className={`text-xs transition-all duration-300 ${gameSession.player2_id === user?.id ? 'animate-pulse bg-primary' : ''}`}>
-                  {player2Username} ⭕
-                </Badge>
+              <div className="flex flex-wrap gap-2 items-center">
+                <div className={`flex items-center gap-1 px-2 py-1 rounded-full transition-all duration-300 ${
+                  currentTurn === gameSession.player1_id 
+                    ? 'bg-primary/20 border-2 border-primary shadow-sm transform scale-105' 
+                    : 'bg-primary/10 border border-primary/30'
+                }`}>
+                  <span className="text-lg">❌</span>
+                  <Badge variant={gameSession.player1_id === user?.id ? 'default' : 'secondary'} className="text-xs">
+                    {player1Username}
+                  </Badge>
+                  {currentTurn === gameSession.player1_id && (
+                    <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse ml-1"></div>
+                  )}
+                </div>
+                
+                <span className="text-muted-foreground text-xs font-bold px-2">vs</span>
+                
+                <div className={`flex items-center gap-1 px-2 py-1 rounded-full transition-all duration-300 ${
+                  currentTurn === gameSession.player2_id 
+                    ? 'bg-destructive/20 border-2 border-destructive shadow-sm transform scale-105' 
+                    : 'bg-destructive/10 border border-destructive/30'
+                }`}>
+                  <span className="text-lg">⭕</span>
+                  <Badge variant={gameSession.player2_id === user?.id ? 'default' : 'secondary'} className="text-xs">
+                    {player2Username}
+                  </Badge>
+                  {currentTurn === gameSession.player2_id && (
+                    <div className="w-1.5 h-1.5 bg-destructive rounded-full animate-pulse ml-1"></div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

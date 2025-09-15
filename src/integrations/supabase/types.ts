@@ -507,6 +507,10 @@ export type Database = {
         Args: { p_bet_amount: number; p_game_id: string; p_user_id: string }
         Returns: Json
       }
+      find_match_and_create_session_v3: {
+        Args: { p_bet_amount: number; p_game_id: string; p_user_id: string }
+        Returns: Json
+      }
       generate_random_math_question: {
         Args: Record<PropertyKey, never>
         Returns: {

@@ -97,9 +97,9 @@ const Games = () => {
     setIsMatchmaking(true);
     
     try {
-      // استخدام النظام الجديد للماتشينق
+      // استخدام الدالة المحسنة للماتشينق السريع
       const { data: matchResult, error: matchError } = await supabase.rpc(
-        'find_match_and_create_session',
+        'find_match_and_create_session_v3',
         {
           p_user_id: user.id,
           p_game_id: selectedGame.id,
