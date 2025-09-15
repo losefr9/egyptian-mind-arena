@@ -18,7 +18,7 @@ export const XOBoard: React.FC<XOBoardProps> = ({
   playerSymbol
 }) => {
   const renderCell = (value: string, index: number) => {
-    const isClickable = !disabled && !value && currentPlayer === playerSymbol;
+    const isClickable = !disabled && !value;
     
     return (
       <Button

@@ -11,7 +11,7 @@ import {
 import { GameCard } from '@/components/games/game-card';
 import { BettingLevels } from '@/components/games/betting-levels';
 import { WaitingScreen } from '@/components/games/waiting-screen';
-import { XOGameArena } from '@/components/games/xo-game/xo-game-arena';
+import { XORaceArena } from '@/components/games/xo-game/xo-race-arena';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -222,7 +222,7 @@ const Games = () => {
       
       case 'playing':
         return currentGameSession ? (
-          <XOGameArena
+          <XORaceArena
             gameSession={currentGameSession}
             onExit={handleExitGame}
           />

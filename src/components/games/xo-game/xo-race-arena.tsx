@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -7,9 +7,9 @@ import { MathQuestion } from './math-question';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
-import { Trophy, Users, DollarSign, Clock, ArrowLeft } from 'lucide-react';
+import { Trophy, Users, DollarSign, Clock, ArrowLeft, Zap, Timer } from 'lucide-react';
 
-interface XOGameArenaProps {
+interface XORaceArenaProps {
   gameSession: any;
   onExit: () => void;
 }
@@ -20,26 +20,52 @@ interface MathQuestion {
   answer: number;
 }
 
-export const XOGameArena: React.FC<XOGameArenaProps> = ({ gameSession, onExit }) => {
+export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit }) => {
   const { user } = useAuth();
   const [board, setBoard] = useState<string[]>(Array(9).fill(''));
-  const [currentTurn, setCurrentTurn] = useState<string>(gameSession.player1_id);
   const [mathQuestion, setMathQuestion] = useState<MathQuestion | null>(null);
-  const [timeLeft, setTimeLeft] = useState(20); // تقليل الوقت إلى 20 ثانية
-  const [waitingForAnswer, setWaitingForAnswer] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(15);
+  const [showQuestion, setShowQuestion] = useState(false);
   const [selectedCell, setSelectedCell] = useState<number | null>(null);
   const [gameStatus, setGameStatus] = useState<'playing' | 'won' | 'draw'>('playing');
   const [winner, setWinner] = useState<string | null>(null);
   const [player1Username, setPlayer1Username] = useState<string>('');
   const [player2Username, setPlayer2Username] = useState<string>('');
   const [showVictoryAnimation, setShowVictoryAnimation] = useState(false);
+  const [raceMode, setRaceMode] = useState(false);
+  const [questionStartTime, setQuestionStartTime] = useState<number>(0);
 
-  const isMyTurn = currentTurn === user?.id;
   const playerSymbol = gameSession.player1_id === user?.id ? 'X' : 'O';
-  const opponentSymbol = playerSymbol === 'X' ? 'O' : 'X';
   const prizeAmount = gameSession.bet_amount * 2;
   const platformFee = prizeAmount * 0.1;
   const winnerEarnings = prizeAmount - platformFee;
+
+  // Real-time updates للوحة
+  useEffect(() => {
+    const channel = supabase
+      .channel(`xo-race-${gameSession.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'xo_matches',
+          filter: `game_session_id=eq.${gameSession.id}`
+        },
+        (payload) => {
+          const newData = payload.new as any;
+          if (newData.board_state) {
+            setBoard(newData.board_state);
+            checkWinnerFromBoard(newData.board_state);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [gameSession.id]);
 
   // تحميل أسماء المستخدمين
   useEffect(() => {
@@ -52,12 +78,8 @@ export const XOGameArena: React.FC<XOGameArenaProps> = ({ gameSession, onExit })
           user_id_input: gameSession.player2_id 
         });
 
-        if (player1Data && player1Data.length > 0) {
-          setPlayer1Username(player1Data[0].username || 'لاعب 1');
-        }
-        if (player2Data && player2Data.length > 0) {
-          setPlayer2Username(player2Data[0].username || 'لاعب 2');
-        }
+        setPlayer1Username(player1Data?.[0]?.username || 'لاعب 1');
+        setPlayer2Username(player2Data?.[0]?.username || 'لاعب 2');
       } catch (error) {
         console.error('Error fetching usernames:', error);
         setPlayer1Username('لاعب 1');
@@ -86,7 +108,23 @@ export const XOGameArena: React.FC<XOGameArenaProps> = ({ gameSession, onExit })
     return board.every(cell => cell !== '') ? 'draw' : null;
   };
 
-  // تحميل سؤال رياضي جديد باستخدام الدالة الآمنة
+  const checkWinnerFromBoard = useCallback((newBoard: string[]) => {
+    const result = checkWinner(newBoard);
+    if (result && gameStatus === 'playing') {
+      if (result === 'draw') {
+        setGameStatus('draw');
+        handleGameEnd('draw');
+      } else {
+        setGameStatus('won');
+        const winnerId = result === 'X' ? gameSession.player1_id : gameSession.player2_id;
+        setWinner(winnerId);
+        setShowVictoryAnimation(true);
+        handleGameEnd('win', winnerId);
+      }
+    }
+  }, [gameStatus, gameSession]);
+
+  // تحميل سؤال جديد لجميع اللاعبين
   const loadNewQuestion = async () => {
     try {
       const { data, error } = await supabase.rpc('get_random_math_question');
@@ -98,10 +136,12 @@ export const XOGameArena: React.FC<XOGameArenaProps> = ({ gameSession, onExit })
         setMathQuestion({
           id: questionData.id,
           question: questionData.question,
-          answer: 0 // لا نحصل على الإجابة من العميل
+          answer: 0
         });
-        setTimeLeft(20); // تقليل الوقت إلى 20 ثانية
-        setWaitingForAnswer(true);
+        setTimeLeft(15);
+        setShowQuestion(true);
+        setRaceMode(true);
+        setQuestionStartTime(Date.now());
       }
     } catch (error) {
       console.error('Error loading question:', error);
@@ -109,21 +149,20 @@ export const XOGameArena: React.FC<XOGameArenaProps> = ({ gameSession, onExit })
     }
   };
 
-  // معالجة النقر على الخلية
+  // معالجة النقر على الخلية - بداية السباق
   const handleCellClick = (index: number) => {
-    if (!isMyTurn || board[index] || gameStatus !== 'playing') return;
+    if (board[index] || gameStatus !== 'playing') return;
     
     setSelectedCell(index);
     loadNewQuestion();
   };
 
-  // معالجة الإجابة على السؤال
+  // معالجة الإجابة على السؤال - سباق السرعة
   const handleMathAnswer = async (answer: number, isCorrect: boolean) => {
-    if (selectedCell === null || !mathQuestion) return;
+    if (selectedCell === null || !mathQuestion || !raceMode) return;
 
-    setWaitingForAnswer(false);
-
-    // التحقق من صحة الإجابة باستخدام الدالة الآمنة للأسئلة المولدة عشوائياً
+    const responseTime = Date.now() - questionStartTime;
+    
     try {
       const { data: validationData, error: validationError } = await supabase.rpc('validate_generated_math_answer', {
         question_text: mathQuestion.question,
@@ -135,60 +174,54 @@ export const XOGameArena: React.FC<XOGameArenaProps> = ({ gameSession, onExit })
       const actualIsCorrect = validationData?.[0]?.is_correct || false;
 
       if (actualIsCorrect) {
-        // وضع العلامة على اللوحة
+        // وضع العلامة فوراً
         const newBoard = [...board];
         newBoard[selectedCell] = playerSymbol;
+        
+        // تحديث اللوحة في قاعدة البيانات
+        await supabase
+          .from('xo_matches')
+          .update({ 
+            board_state: newBoard,
+            updated_at: new Date().toISOString()
+          })
+          .eq('game_session_id', gameSession.id);
+
         setBoard(newBoard);
-
-      // التحقق من الفوز
-      const result = checkWinner(newBoard);
-      if (result) {
-        if (result === 'draw') {
-          setGameStatus('draw');
-          await handleGameEnd('draw');
-        } else {
-          setGameStatus('won');
-          const winnerId = result === playerSymbol ? user?.id : getOpponentId();
-          setWinner(winnerId);
-          setShowVictoryAnimation(true);
-          await handleGameEnd('win', winnerId);
-        }
-      } else {
-          // تغيير الدور
-          setCurrentTurn(currentTurn === gameSession.player1_id ? gameSession.player2_id : gameSession.player1_id);
-        }
-
+        
         // تسجيل النشاط
-        await logActivity('move_made', {
+        await logActivity('race_move_made', {
           cell: selectedCell,
           symbol: playerSymbol,
           question: mathQuestion?.question,
           answer: answer,
+          response_time: responseTime,
           board: newBoard
         });
+
+        toast.success(`🎯 إجابة صحيحة! وقت الاستجابة: ${responseTime}ms`);
       } else {
-        toast.error('إجابة خاطئة! تم تجديد السؤال');
+        toast.error('💫 إجابة خاطئة! حاول مرة أخرى');
       }
     } catch (error) {
       console.error('Error validating answer:', error);
       toast.error('خطأ في التحقق من الإجابة');
     }
 
+    // إنهاء السباق
     setSelectedCell(null);
     setMathQuestion(null);
+    setShowQuestion(false);
+    setRaceMode(false);
   };
 
   // معالجة انتهاء الوقت
   const handleTimeUp = () => {
-    setWaitingForAnswer(false);
     setSelectedCell(null);
     setMathQuestion(null);
-    toast.warning('انتهى الوقت! تم تجديد السؤال');
-  };
-
-  // الحصول على معرف الخصم
-  const getOpponentId = () => {
-    return gameSession.player1_id === user?.id ? gameSession.player2_id : gameSession.player1_id;
+    setShowQuestion(false);
+    setRaceMode(false);
+    toast.warning('⏰ انتهى الوقت! حاول مرة أخرى');
   };
 
   // معالجة انتهاء اللعبة
@@ -196,7 +229,7 @@ export const XOGameArena: React.FC<XOGameArenaProps> = ({ gameSession, onExit })
     try {
       if (result === 'draw') {
         await supabase.rpc('handle_draw_match', { session_id: gameSession.id });
-        toast.info('تعادل! تم إرجاع مبلغ الرهان');
+        toast.info('🤝 تعادل! تم إرجاع مبلغ الرهان');
       } else if (winnerId) {
         await supabase.rpc('calculate_match_earnings', { 
           session_id: gameSession.id, 
@@ -205,9 +238,9 @@ export const XOGameArena: React.FC<XOGameArenaProps> = ({ gameSession, onExit })
         
         const isWinner = winnerId === user?.id;
         if (isWinner) {
-          toast.success(`تهانينا! ربحت ${winnerEarnings.toFixed(2)} جنيه`);
+          toast.success(`🎉 تهانينا! ربحت ${winnerEarnings.toFixed(2)} جنيه`);
         } else {
-          toast.error('للأسف خسرت المباراة');
+          toast.error('😔 للأسف خسرت المباراة');
         }
       }
     } catch (error) {
@@ -234,13 +267,13 @@ export const XOGameArena: React.FC<XOGameArenaProps> = ({ gameSession, onExit })
 
   // مؤقت العد التنازلي
   useEffect(() => {
-    if (waitingForAnswer && timeLeft > 0) {
+    if (showQuestion && timeLeft > 0) {
       const timer = setInterval(() => {
         setTimeLeft(prev => prev - 1);
       }, 1000);
       return () => clearInterval(timer);
     }
-  }, [waitingForAnswer, timeLeft]);
+  }, [showQuestion, timeLeft]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-accent/10 p-2 sm:p-4 space-y-4 sm:space-y-6">
@@ -250,9 +283,9 @@ export const XOGameArena: React.FC<XOGameArenaProps> = ({ gameSession, onExit })
         <CardHeader className="pb-2 sm:pb-6 relative z-10">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
             <CardTitle className="flex items-center gap-2 text-lg sm:text-xl text-primary">
-              <Trophy className="h-5 w-5 sm:h-6 sm:w-6 text-primary animate-spin-slow" />
+              <Zap className="h-5 w-5 sm:h-6 sm:w-6 text-primary animate-pulse" />
               <span className="font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                مباراة XO 🎮
+                ⚡ سباق XO الذكي ⚡
               </span>
             </CardTitle>
             <Button variant="outline" onClick={onExit} size="sm" className="hover:scale-105 transition-all duration-300">
@@ -278,36 +311,22 @@ export const XOGameArena: React.FC<XOGameArenaProps> = ({ gameSession, onExit })
             
             <div className="flex flex-wrap items-center gap-2 justify-center sm:justify-start bg-blue-50 dark:bg-blue-950 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
               <Users className="h-4 w-4 text-blue-500 animate-pulse" />
-              <span className="text-xs sm:text-sm font-medium">اللاعبون:</span>
+              <span className="text-xs sm:text-sm font-medium">المتسابقون:</span>
               <div className="flex flex-wrap gap-2 items-center">
-                <div className={`flex items-center gap-1 px-2 py-1 rounded-full transition-all duration-300 ${
-                  currentTurn === gameSession.player1_id 
-                    ? 'bg-primary/20 border-2 border-primary shadow-sm transform scale-105' 
-                    : 'bg-primary/10 border border-primary/30'
-                }`}>
+                <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-red-100 border border-red-300">
                   <span className="text-lg">❌</span>
                   <Badge variant={gameSession.player1_id === user?.id ? 'default' : 'secondary'} className="text-xs">
                     {player1Username}
                   </Badge>
-                  {currentTurn === gameSession.player1_id && (
-                    <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse ml-1"></div>
-                  )}
                 </div>
                 
-                <span className="text-muted-foreground text-xs font-bold px-2">vs</span>
+                <span className="text-muted-foreground text-xs font-bold px-2">⚡</span>
                 
-                <div className={`flex items-center gap-1 px-2 py-1 rounded-full transition-all duration-300 ${
-                  currentTurn === gameSession.player2_id 
-                    ? 'bg-destructive/20 border-2 border-destructive shadow-sm transform scale-105' 
-                    : 'bg-destructive/10 border border-destructive/30'
-                }`}>
+                <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-blue-100 border border-blue-300">
                   <span className="text-lg">⭕</span>
                   <Badge variant={gameSession.player2_id === user?.id ? 'default' : 'secondary'} className="text-xs">
                     {player2Username}
                   </Badge>
-                  {currentTurn === gameSession.player2_id && (
-                    <div className="w-1.5 h-1.5 bg-destructive rounded-full animate-pulse ml-1"></div>
-                  )}
                 </div>
               </div>
             </div>
@@ -317,21 +336,18 @@ export const XOGameArena: React.FC<XOGameArenaProps> = ({ gameSession, onExit })
 
       {/* حالة اللعبة */}
       {gameStatus === 'playing' ? (
-        <Card className="bg-gradient-to-r from-primary/10 via-accent/5 to-primary/10 border-primary/20 shadow-xl">
+        <Card className="bg-gradient-to-r from-orange/10 via-accent/5 to-orange/10 border-orange/20 shadow-xl">
           <CardContent className="pt-6">
             <div className="text-center mb-4">
-              {isMyTurn ? (
-                <div className="relative">
-                  <Badge variant="default" className="text-lg px-8 py-3 animate-pulse bg-gradient-to-r from-primary to-accent shadow-lg">
-                    <Clock className="h-5 w-5 ml-2 animate-spin" />
-                    <span className="font-bold">🔥 دورك الآن! اختر مربعاً 🎯</span>
-                  </Badge>
-                  <div className="absolute -inset-1 bg-gradient-to-r from-primary to-accent rounded-lg blur opacity-30 group-hover:opacity-100 transition duration-1000 group-hover:duration-200"></div>
-                </div>
+              {raceMode ? (
+                <Badge variant="default" className="text-lg px-8 py-3 animate-pulse bg-gradient-to-r from-orange-500 to-red-500 shadow-lg">
+                  <Timer className="h-5 w-5 ml-2 animate-spin" />
+                  <span className="font-bold">🏃‍♂️ سباق السرعة! من يجيب أولاً يفوز!</span>
+                </Badge>
               ) : (
-                <Badge variant="secondary" className="text-lg px-8 py-3 bg-muted/50 animate-pulse">
-                  <Clock className="h-5 w-5 ml-2" />
-                  <span>⏳ دور {currentTurn === gameSession.player1_id ? player1Username : player2Username}</span>
+                <Badge variant="secondary" className="text-lg px-8 py-3 bg-gradient-to-r from-primary/20 to-accent/20 animate-pulse">
+                  <Zap className="h-5 w-5 ml-2 animate-bounce" />
+                  <span>⚡ اختر مربعاً لبدء السباق!</span>
                 </Badge>
               )}
             </div>
@@ -361,21 +377,18 @@ export const XOGameArena: React.FC<XOGameArenaProps> = ({ gameSession, onExit })
             <div className="relative z-10">
               <Trophy className="h-16 w-16 text-green-600 mx-auto mb-6 animate-pulse drop-shadow-lg" />
               <h3 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent mb-4">
-                {winner === user?.id ? '🎉 تهانينا! ربحت المباراة! 🎉' : '🎮 انتهت المباراة'}
+                {winner === user?.id ? '🏆 فوز في السباق! 🏆' : '🎮 انتهى السباق'}
               </h3>
               <div className={`text-xl font-semibold p-4 rounded-lg ${winner === user?.id ? 'bg-green-200 text-green-800' : 'bg-gray-200 text-gray-800'}`}>
                 {winner === user?.id 
-                  ? `💸 ربحت ${winnerEarnings.toFixed(2)} جنيه! 💸` 
-                  : '😔 للأسف خسرت المباراة'
+                  ? `⚡ ربحت ${winnerEarnings.toFixed(2)} جنيه في السباق! ⚡` 
+                  : '😔 خسرت السباق هذه المرة'
                 }
               </div>
               {winner === user?.id && (
                 <div className="mt-4 space-y-2">
                   <p className="text-green-600 font-medium animate-fade-in">
-                    🚀 أداء رائع! العب مرة أخرى واربح أكثر!
-                  </p>
-                  <p className="text-green-500 text-sm animate-pulse">
-                    ⚡ انت محظوظ اليوم! استمر في اللعب
+                    🚀 سرعة رائعة! استمر في السباق!
                   </p>
                 </div>
               )}
@@ -387,12 +400,12 @@ export const XOGameArena: React.FC<XOGameArenaProps> = ({ gameSession, onExit })
           <CardContent className="pt-8 text-center">
             <Users className="h-16 w-16 text-yellow-600 mx-auto mb-6 animate-pulse drop-shadow-lg" />
             <h3 className="text-3xl font-bold bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-transparent mb-4">
-              🤝 تعادل رائع!
+              🤝 تعادل في السباق!
             </h3>
             <div className="text-xl font-semibold p-4 bg-yellow-200 text-yellow-800 rounded-lg mb-4">
-              💰 تم إرجاع مبلغ الرهان لكلا اللاعبين
+              💰 تم إرجاع مبلغ الرهان لكلا المتسابقين
             </div>
-            <p className="text-yellow-600 font-medium animate-pulse">🎮 مباراة ممتعة! جرب مرة أخرى لتحديد الفائز!</p>
+            <p className="text-yellow-600 font-medium animate-pulse">🏃‍♂️ سباق متقارب! جرب مرة أخرى!</p>
           </CardContent>
         </Card>
       )}
@@ -404,14 +417,14 @@ export const XOGameArena: React.FC<XOGameArenaProps> = ({ gameSession, onExit })
             board={board}
             onCellClick={handleCellClick}
             currentPlayer={playerSymbol}
-            disabled={!isMyTurn || waitingForAnswer || gameStatus !== 'playing'}
+            disabled={gameStatus !== 'playing'}
             playerSymbol={playerSymbol}
           />
         </div>
 
         {/* السؤال الرياضي */}
         <div className="flex justify-center order-2 lg:order-2">
-          {waitingForAnswer && mathQuestion ? (
+          {showQuestion && mathQuestion ? (
             <MathQuestion
               question={mathQuestion.question}
               questionId={mathQuestion.id}
@@ -420,16 +433,14 @@ export const XOGameArena: React.FC<XOGameArenaProps> = ({ gameSession, onExit })
               onTimeUp={handleTimeUp}
             />
           ) : (
-              <Card className="w-full max-w-md bg-muted/50">
-                <CardContent className="pt-4 sm:pt-6 text-center">
-                  <div className="text-muted-foreground text-sm sm:text-base">
-                    {isMyTurn && gameStatus === 'playing' 
-                      ? '🎯 اختر مربعاً لإظهار السؤال الرياضي' 
-                      : gameStatus === 'playing' 
-                      ? `⏳ انتظر دور ${currentTurn === gameSession.player1_id ? player1Username : player2Username}...` 
-                      : '🎮 انتهت المباراة'
-                    }
-                  </div>
+            <Card className="w-full max-w-md bg-muted/50">
+              <CardContent className="pt-4 sm:pt-6 text-center">
+                <div className="text-muted-foreground text-sm sm:text-base">
+                  {gameStatus === 'playing' 
+                    ? '🏃‍♂️ اختر مربعاً لبدء سباق السرعة!' 
+                    : '🏁 انتهى السباق'
+                  }
+                </div>
               </CardContent>
             </Card>
           )}
