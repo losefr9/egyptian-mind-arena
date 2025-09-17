@@ -40,56 +40,6 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
   const platformFee = prizeAmount * 0.1;
   const winnerEarnings = prizeAmount - platformFee;
 
-  // Real-time updates للوحة
-  useEffect(() => {
-    const channel = supabase
-      .channel(`xo-race-${gameSession.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'xo_matches',
-          filter: `game_session_id=eq.${gameSession.id}`
-        },
-        (payload) => {
-          const newData = payload.new as any;
-          if (newData.board_state) {
-            setBoard(newData.board_state);
-            checkWinnerFromBoard(newData.board_state);
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [gameSession.id]);
-
-  // تحميل أسماء المستخدمين
-  useEffect(() => {
-    const fetchUsernames = async () => {
-      try {
-        const { data: player1Data } = await supabase.rpc('get_public_username', { 
-          user_id_input: gameSession.player1_id 
-        });
-        const { data: player2Data } = await supabase.rpc('get_public_username', { 
-          user_id_input: gameSession.player2_id 
-        });
-
-        setPlayer1Username(player1Data?.[0]?.username || 'لاعب 1');
-        setPlayer2Username(player2Data?.[0]?.username || 'لاعب 2');
-      } catch (error) {
-        console.error('Error fetching usernames:', error);
-        setPlayer1Username('لاعب 1');
-        setPlayer2Username('لاعب 2');
-      }
-    };
-
-    fetchUsernames();
-  }, [gameSession.player1_id, gameSession.player2_id]);
-
   // التحقق من الفوز
   const checkWinner = (board: string[]) => {
     const winningCombinations = [
@@ -122,7 +72,89 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
         handleGameEnd('win', winnerId);
       }
     }
-  }, [gameStatus, gameSession]);
+  }, [gameStatus, gameSession.player1_id, gameSession.player2_id]);
+
+  // تحميل اللوحة الحالية عند البداية
+  useEffect(() => {
+    const loadCurrentBoard = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('xo_matches')
+          .select('board_state')
+          .eq('game_session_id', gameSession.id)
+          .single();
+
+        if (error) throw error;
+        
+        if (data?.board_state && Array.isArray(data.board_state)) {
+          setBoard(data.board_state as string[]);
+        }
+      } catch (error) {
+        console.error('Error loading board state:', error);
+      }
+    };
+
+    loadCurrentBoard();
+  }, [gameSession.id]);
+
+  // Real-time updates للوحة
+  useEffect(() => {
+    const channel = supabase
+      .channel(`xo-race-${gameSession.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'xo_matches',
+          filter: `game_session_id=eq.${gameSession.id}`
+        },
+        (payload) => {
+          console.log('Real-time update received:', payload);
+          const newData = payload.new as any;
+          if (newData.board_state && Array.isArray(newData.board_state)) {
+            setBoard(newData.board_state as string[]);
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log('Subscription status:', status);
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [gameSession.id]);
+
+  // فحص الفائز عند تغيير اللوحة
+  useEffect(() => {
+    if (board.some(cell => cell !== '')) {
+      checkWinnerFromBoard(board);
+    }
+  }, [board, checkWinnerFromBoard]);
+
+  // تحميل أسماء المستخدمين
+  useEffect(() => {
+    const fetchUsernames = async () => {
+      try {
+        const { data: player1Data } = await supabase.rpc('get_public_username', { 
+          user_id_input: gameSession.player1_id 
+        });
+        const { data: player2Data } = await supabase.rpc('get_public_username', { 
+          user_id_input: gameSession.player2_id 
+        });
+
+        setPlayer1Username(player1Data?.[0]?.username || 'لاعب 1');
+        setPlayer2Username(player2Data?.[0]?.username || 'لاعب 2');
+      } catch (error) {
+        console.error('Error fetching usernames:', error);
+        setPlayer1Username('لاعب 1');
+        setPlayer2Username('لاعب 2');
+      }
+    };
+
+    fetchUsernames();
+  }, [gameSession.player1_id, gameSession.player2_id]);
 
   // تحميل سؤال جديد لجميع اللاعبين
   const loadNewQuestion = async () => {
@@ -178,15 +210,19 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
         const newBoard = [...board];
         newBoard[selectedCell] = playerSymbol;
         
-        // تحديث اللوحة في قاعدة البيانات
-        await supabase
-          .from('xo_matches')
-          .update({ 
-            board_state: newBoard,
-            updated_at: new Date().toISOString()
-          })
-          .eq('game_session_id', gameSession.id);
+        // تحديث اللوحة في قاعدة البيانات باستخدام الدالة المخصصة
+        const { data: updateResult, error: updateError } = await supabase.rpc('update_xo_board', {
+          p_game_session_id: gameSession.id,
+          p_new_board: newBoard,
+          p_player_id: user?.id
+        });
 
+        if (updateError) {
+          console.error('Error updating board:', updateError);
+          throw updateError;
+        }
+
+        // تحديث الحالة المحلية
         setBoard(newBoard);
         
         // تسجيل النشاط
@@ -428,18 +464,30 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
             <MathQuestion
               question={mathQuestion.question}
               questionId={mathQuestion.id}
-              timeLeft={timeLeft}
               onAnswer={handleMathAnswer}
+              timeLeft={timeLeft}
               onTimeUp={handleTimeUp}
             />
           ) : (
-            <Card className="w-full max-w-md bg-muted/50">
-              <CardContent className="pt-4 sm:pt-6 text-center">
-                <div className="text-muted-foreground text-sm sm:text-base">
-                  {gameStatus === 'playing' 
-                    ? '🏃‍♂️ اختر مربعاً لبدء سباق السرعة!' 
-                    : '🏁 انتهى السباق'
-                  }
+            <Card className="w-full max-w-md bg-gradient-to-br from-primary/5 via-accent/5 to-primary/10 border-2 border-dashed border-primary/30 shadow-lg">
+              <CardContent className="pt-8 text-center">
+                <div className="space-y-4">
+                  <div className="animate-pulse">
+                    <Zap className="h-16 w-16 mx-auto text-primary/60 mb-4" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">
+                    🎯 جاهز للسباق؟
+                  </h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    اختر أي مربع لبدء سباق سريع! 🏃‍♂️<br />
+                    أول من يجيب بشكل صحيح يضع علامته
+                  </p>
+                  <div className="pt-4">
+                    <Badge variant="outline" className="animate-pulse">
+                      <Clock className="h-4 w-4 ml-1" />
+                      في انتظار الاختيار...
+                    </Badge>
+                  </div>
                 </div>
               </CardContent>
             </Card>
