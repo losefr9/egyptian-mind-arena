@@ -95,25 +95,27 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
         } else {
           // إنشاء لوحة جديدة إذا لم تكن موجودة
           console.log('Creating new board for session:', gameSession.id);
-          const { data: createResult, error: createError } = await supabase.rpc('create_new_xo_match', {
-            session_id: gameSession.id
-          });
-          
-          if (createError) {
+          try {
+            await supabase.rpc('create_new_xo_match', {
+              session_id: gameSession.id
+            });
+            setBoard(Array(9).fill(''));
+            console.log('New match created successfully');
+          } catch (createError) {
             console.error('Error creating new match:', createError);
-          } else {
             setBoard(Array(9).fill(''));
           }
         }
       } catch (error) {
         console.error('Error in loadCurrentBoard:', error);
+        setBoard(Array(9).fill(''));
       }
     };
 
     loadCurrentBoard();
   }, [gameSession.id]);
 
-  // Real-time updates للوحة مع المزيد من التفاصيل
+  // Real-time updates للوحة مع تحسينات للتحديث الفوري
   useEffect(() => {
     console.log('Setting up real-time subscription for game session:', gameSession.id);
     
@@ -139,6 +141,7 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
           
           if (newData.board_state && Array.isArray(newData.board_state)) {
             console.log('Updating board from:', oldData?.board_state, 'to:', newData.board_state);
+            // التحديث الفوري من قاعدة البيانات
             setBoard(newData.board_state as string[]);
           }
         }
@@ -152,15 +155,21 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
           filter: `game_session_id=eq.${gameSession.id}`
         },
         (payload) => {
-          console.log('New match created:', payload);
+          console.log('New match created via real-time:', payload);
           const newData = payload.new as any;
           if (newData.board_state && Array.isArray(newData.board_state)) {
+            console.log('Setting initial board state:', newData.board_state);
             setBoard(newData.board_state as string[]);
           }
         }
       )
       .subscribe((status) => {
         console.log('Real-time subscription status:', status);
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Real-time subscription active for game:', gameSession.id);
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('❌ Real-time subscription error for game:', gameSession.id);
+        }
       });
 
     return () => {
@@ -261,7 +270,10 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
           sessionId: gameSession.id
         });
         
-        // تحديث اللوحة في قاعدة البيانات باستخدام الدالة المحسنة
+        // تحديث الحالة المحلية فوراً أولاً للاستجابة السريعة
+        setBoard(newBoard);
+        
+        // تحديث اللوحة في قاعدة البيانات
         const { data: updateResult, error: updateError } = await supabase.rpc('update_xo_board', {
           p_game_session_id: gameSession.id,
           p_new_board: newBoard,
@@ -272,24 +284,28 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
 
         if (updateError) {
           console.error('Error updating board:', updateError);
+          // في حالة فشل قاعدة البيانات، إرجاع اللوحة للحالة السابقة
+          setBoard(board);
           toast.error('خطأ في تحديث اللوحة');
           return;
         }
 
         console.log('Board updated successfully in database');
         
-        // تحديث الحالة المحلية فوراً
-        setBoard(newBoard);
-        
         // تسجيل النشاط
-        await logActivity('race_move_made', {
-          cell: selectedCell,
-          symbol: playerSymbol,
-          question: mathQuestion?.question,
-          answer: answer,
-          response_time: responseTime,
-          board: newBoard
-        });
+        try {
+          await logActivity('race_move_made', {
+            cell: selectedCell,
+            symbol: playerSymbol,
+            question: mathQuestion?.question,
+            answer: answer,
+            response_time: responseTime,
+            board: newBoard
+          });
+        } catch (logError) {
+          console.error('Error logging activity:', logError);
+          // لا نعيق التدفق بسبب خطأ في التسجيل
+        }
 
         toast.success(`🎯 إجابة صحيحة! وقت الاستجابة: ${responseTime}ms`);
       } else {
