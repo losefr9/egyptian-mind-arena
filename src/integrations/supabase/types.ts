@@ -503,6 +503,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      create_new_xo_match: {
+        Args: { session_id: string }
+        Returns: undefined
+      }
       find_match_and_create_session: {
         Args: { p_bet_amount: number; p_game_id: string; p_user_id: string }
         Returns: Json
@@ -594,11 +598,17 @@ export type Database = {
         Returns: boolean
       }
       update_xo_board: {
-        Args: {
-          p_game_session_id: string
-          p_new_board: Json
-          p_player_id: string
-        }
+        Args:
+          | {
+              p_game_session_id: string
+              p_new_board: string[]
+              p_player_id: string
+            }
+          | {
+              p_game_session_id: string
+              p_new_board: Json
+              p_player_id: string
+            }
         Returns: boolean
       }
       validate_generated_math_answer: {

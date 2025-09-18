@@ -82,25 +82,48 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
           .from('xo_matches')
           .select('board_state')
           .eq('game_session_id', gameSession.id)
-          .single();
+          .maybeSingle();
 
-        if (error) throw error;
+        if (error && error.code !== 'PGRST116') {
+          console.error('Error loading board state:', error);
+          return;
+        }
         
         if (data?.board_state && Array.isArray(data.board_state)) {
+          console.log('Board loaded from database:', data.board_state);
           setBoard(data.board_state as string[]);
+        } else {
+          // إنشاء لوحة جديدة إذا لم تكن موجودة
+          console.log('Creating new board for session:', gameSession.id);
+          const { data: createResult, error: createError } = await supabase.rpc('create_new_xo_match', {
+            session_id: gameSession.id
+          });
+          
+          if (createError) {
+            console.error('Error creating new match:', createError);
+          } else {
+            setBoard(Array(9).fill(''));
+          }
         }
       } catch (error) {
-        console.error('Error loading board state:', error);
+        console.error('Error in loadCurrentBoard:', error);
       }
     };
 
     loadCurrentBoard();
   }, [gameSession.id]);
 
-  // Real-time updates للوحة
+  // Real-time updates للوحة مع المزيد من التفاصيل
   useEffect(() => {
+    console.log('Setting up real-time subscription for game session:', gameSession.id);
+    
     const channel = supabase
-      .channel(`xo-race-${gameSession.id}`)
+      .channel(`xo-race-${gameSession.id}`, {
+        config: {
+          broadcast: { self: false },
+          presence: { key: user?.id }
+        }
+      })
       .on(
         'postgres_changes',
         {
@@ -110,7 +133,26 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
           filter: `game_session_id=eq.${gameSession.id}`
         },
         (payload) => {
-          console.log('Real-time update received:', payload);
+          console.log('Real-time board update received:', payload);
+          const newData = payload.new as any;
+          const oldData = payload.old as any;
+          
+          if (newData.board_state && Array.isArray(newData.board_state)) {
+            console.log('Updating board from:', oldData?.board_state, 'to:', newData.board_state);
+            setBoard(newData.board_state as string[]);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'xo_matches',
+          filter: `game_session_id=eq.${gameSession.id}`
+        },
+        (payload) => {
+          console.log('New match created:', payload);
           const newData = payload.new as any;
           if (newData.board_state && Array.isArray(newData.board_state)) {
             setBoard(newData.board_state as string[]);
@@ -118,13 +160,14 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
         }
       )
       .subscribe((status) => {
-        console.log('Subscription status:', status);
+        console.log('Real-time subscription status:', status);
       });
 
     return () => {
+      console.log('Cleaning up real-time subscription');
       supabase.removeChannel(channel);
     };
-  }, [gameSession.id]);
+  }, [gameSession.id, user?.id]);
 
   // فحص الفائز عند تغيير اللوحة
   useEffect(() => {
@@ -210,19 +253,32 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
         const newBoard = [...board];
         newBoard[selectedCell] = playerSymbol;
         
-        // تحديث اللوحة في قاعدة البيانات باستخدام الدالة المخصصة
+        console.log('Player answered correctly, updating board:', {
+          from: board,
+          to: newBoard,
+          cell: selectedCell,
+          symbol: playerSymbol,
+          sessionId: gameSession.id
+        });
+        
+        // تحديث اللوحة في قاعدة البيانات باستخدام الدالة المحسنة
         const { data: updateResult, error: updateError } = await supabase.rpc('update_xo_board', {
           p_game_session_id: gameSession.id,
           p_new_board: newBoard,
           p_player_id: user?.id
         });
 
+        console.log('Database update result:', { updateResult, updateError });
+
         if (updateError) {
           console.error('Error updating board:', updateError);
-          throw updateError;
+          toast.error('خطأ في تحديث اللوحة');
+          return;
         }
 
-        // تحديث الحالة المحلية
+        console.log('Board updated successfully in database');
+        
+        // تحديث الحالة المحلية فوراً
         setBoard(newBoard);
         
         // تسجيل النشاط
