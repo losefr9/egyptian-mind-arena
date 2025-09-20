@@ -293,10 +293,10 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
         });
         
         try {
-          // تحديث قاعدة البيانات أولاً
+          // تحديث قاعدة البيانات أولاً - تحويل المصفوفة إلى JSON أولاً
           const { data: updateResult, error: updateError } = await supabase.rpc('update_xo_board', {
             p_game_session_id: gameSession.id,
-            p_new_board: newBoard,
+            p_new_board: JSON.stringify(newBoard), // تحويل إلى JSON string ليتم التعامل معه كـ jsonb
             p_player_id: user?.id
           });
 
