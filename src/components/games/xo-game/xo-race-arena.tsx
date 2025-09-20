@@ -139,10 +139,32 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
           const newData = payload.new as any;
           const oldData = payload.old as any;
           
-          if (newData.board_state && Array.isArray(newData.board_state)) {
-            console.log('Updating board from:', oldData?.board_state, 'to:', newData.board_state);
-            // التحديث الفوري من قاعدة البيانات
-            setBoard(newData.board_state as string[]);
+          if (newData.board_state) {
+            let boardState: string[];
+            
+            // التعامل مع board_state سواء كان string أو array
+            if (Array.isArray(newData.board_state)) {
+              boardState = newData.board_state;
+            } else if (typeof newData.board_state === 'string') {
+              try {
+                boardState = JSON.parse(newData.board_state);
+              } catch {
+                boardState = newData.board_state;
+              }
+            } else {
+              boardState = newData.board_state;
+            }
+            
+            console.log('Updating board from real-time:', oldData?.board_state, 'to:', boardState);
+            
+            // التحديث الفوري مع المحافظة على العلامات الموجودة
+            setBoard(prevBoard => {
+              // التأكد من أن الحالة الجديدة مختلفة
+              if (JSON.stringify(prevBoard) !== JSON.stringify(boardState)) {
+                return boardState;
+              }
+              return prevBoard;
+            });
           }
         }
       )
@@ -258,7 +280,7 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
       const actualIsCorrect = validationData?.[0]?.is_correct || false;
 
       if (actualIsCorrect) {
-        // وضع العلامة فوراً
+        // تحضير اللوحة الجديدة
         const newBoard = [...board];
         newBoard[selectedCell] = playerSymbol;
         
@@ -270,44 +292,52 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
           sessionId: gameSession.id
         });
         
-        // تحديث الحالة المحلية فوراً أولاً للاستجابة السريعة
-        setBoard(newBoard);
-        
-        // تحديث اللوحة في قاعدة البيانات
-        const { data: updateResult, error: updateError } = await supabase.rpc('update_xo_board', {
-          p_game_session_id: gameSession.id,
-          p_new_board: newBoard,
-          p_player_id: user?.id
-        });
-
-        console.log('Database update result:', { updateResult, updateError });
-
-        if (updateError) {
-          console.error('Error updating board:', updateError);
-          // في حالة فشل قاعدة البيانات، إرجاع اللوحة للحالة السابقة
-          setBoard(board);
-          toast.error('خطأ في تحديث اللوحة');
-          return;
-        }
-
-        console.log('Board updated successfully in database');
-        
-        // تسجيل النشاط
         try {
-          await logActivity('race_move_made', {
-            cell: selectedCell,
-            symbol: playerSymbol,
-            question: mathQuestion?.question,
-            answer: answer,
-            response_time: responseTime,
-            board: newBoard
+          // تحديث قاعدة البيانات أولاً
+          const { data: updateResult, error: updateError } = await supabase.rpc('update_xo_board', {
+            p_game_session_id: gameSession.id,
+            p_new_board: newBoard,
+            p_player_id: user?.id
           });
-        } catch (logError) {
-          console.error('Error logging activity:', logError);
-          // لا نعيق التدفق بسبب خطأ في التسجيل
-        }
 
-        toast.success(`🎯 إجابة صحيحة! وقت الاستجابة: ${responseTime}ms`);
+          console.log('Database update result:', { updateResult, updateError });
+
+          if (updateError) {
+            console.error('Error updating board:', updateError);
+            toast.error('خطأ في تحديث اللوحة');
+            return;
+          }
+
+          const result = updateResult as any;
+          if (result?.success) {
+            console.log('Board updated successfully in database');
+            
+            // تحديث الحالة المحلية بعد نجاح قاعدة البيانات
+            setBoard(newBoard);
+            
+            // تسجيل النشاط
+            try {
+              await logActivity('race_move_made', {
+                cell: selectedCell,
+                symbol: playerSymbol,
+                question: mathQuestion?.question,
+                answer: answer,
+                response_time: responseTime,
+                board: newBoard
+              });
+            } catch (logError) {
+              console.error('Error logging activity:', logError);
+            }
+
+            toast.success(`🎯 إجابة صحيحة! وقت الاستجابة: ${responseTime}ms`);
+          } else {
+            console.error('Database update failed:', updateResult);
+            toast.error('فشل في تحديث اللوحة');
+          }
+        } catch (dbError) {
+          console.error('Error in database update:', dbError);
+          toast.error('خطأ في تحديث اللوحة');
+        }
       } else {
         toast.error('💫 إجابة خاطئة! حاول مرة أخرى');
       }
