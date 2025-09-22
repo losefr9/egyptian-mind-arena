@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -34,6 +34,7 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
   const [showVictoryAnimation, setShowVictoryAnimation] = useState(false);
   const [raceMode, setRaceMode] = useState(false);
   const [questionStartTime, setQuestionStartTime] = useState<number>(0);
+  const subscriptionRef = useRef<any>(null);
 
   const playerSymbol = gameSession.player1_id === user?.id ? 'X' : 'O';
   const prizeAmount = gameSession.bet_amount * 2;
@@ -74,52 +75,80 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
     }
   }, [gameStatus, gameSession.player1_id, gameSession.player2_id]);
 
-  // تحميل اللوحة الحالية عند البداية
-  useEffect(() => {
-    const loadCurrentBoard = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('xo_matches')
-          .select('board_state')
-          .eq('game_session_id', gameSession.id)
-          .maybeSingle();
+  // تحميل اللوحة الحالية والإعداد الأولي
+  const initializeGame = useCallback(async () => {
+    try {
+      console.log('🎮 تهيئة اللعبة...');
+      
+      // تحميل حالة اللوحة الحالية
+      const { data, error } = await supabase
+        .from('xo_matches')
+        .select('board_state')
+        .eq('game_session_id', gameSession.id)
+        .maybeSingle();
 
-        if (error && error.code !== 'PGRST116') {
-          console.error('Error loading board state:', error);
-          return;
-        }
-        
-        if (data?.board_state && Array.isArray(data.board_state)) {
-          console.log('Board loaded from database:', data.board_state);
-          setBoard(data.board_state as string[]);
-        } else {
-          // إنشاء لوحة جديدة إذا لم تكن موجودة
-          console.log('Creating new board for session:', gameSession.id);
+      if (error && error.code !== 'PGRST116') {
+        console.error('خطأ في تحميل حالة اللوحة:', error);
+        return;
+      }
+      
+      if (data?.board_state) {
+        let boardState = data.board_state;
+        if (typeof boardState === 'string') {
           try {
-            await supabase.rpc('create_new_xo_match', {
-              session_id: gameSession.id
-            });
-            setBoard(Array(9).fill(''));
-            console.log('New match created successfully');
-          } catch (createError) {
-            console.error('Error creating new match:', createError);
-            setBoard(Array(9).fill(''));
+            boardState = JSON.parse(boardState);
+          } catch {
+            console.log('Board state is already parsed or not JSON');
           }
         }
-      } catch (error) {
-        console.error('Error in loadCurrentBoard:', error);
-        setBoard(Array(9).fill(''));
+        
+        if (Array.isArray(boardState)) {
+          console.log('✅ تم تحميل حالة اللوحة:', boardState);
+          setBoard(boardState as string[]);
+        } else {
+          console.log('📝 إنشاء لوحة جديدة');
+          const emptyBoard = Array(9).fill('');
+          setBoard(emptyBoard);
+          await createNewMatch();
+        }
+      } else {
+        console.log('📝 إنشاء لوحة جديدة - لا توجد بيانات');
+        const emptyBoard = Array(9).fill('');
+        setBoard(emptyBoard);
+        await createNewMatch();
       }
-    };
 
-    loadCurrentBoard();
+      // إعداد الاشتراك في الوقت الفعلي
+      setupRealTimeSubscription();
+      
+    } catch (error) {
+      console.error('❌ خطأ في تهيئة اللعبة:', error);
+      setBoard(Array(9).fill(''));
+    }
   }, [gameSession.id]);
 
-  // Real-time updates للوحة مع تحسينات للتحديث الفوري
-  useEffect(() => {
-    console.log('Setting up real-time subscription for game session:', gameSession.id);
+  // إنشاء مباراة جديدة
+  const createNewMatch = async () => {
+    try {
+      await supabase.rpc('create_new_xo_match', {
+        session_id: gameSession.id
+      });
+      console.log('✅ تم إنشاء مباراة جديدة');
+    } catch (error) {
+      console.error('❌ خطأ في إنشاء مباراة جديدة:', error);
+    }
+  };
+
+  // إعداد الاشتراك في الوقت الفعلي
+  const setupRealTimeSubscription = () => {
+    console.log('📡 إعداد الاشتراك في التحديثات الفورية للعبة:', gameSession.id);
     
-    const channel = supabase
+    // إزالة الاشتراك السابق إن وجد
+    if (subscriptionRef.current) {
+      supabase.removeChannel(subscriptionRef.current);
+    }
+
+    subscriptionRef.current = supabase
       .channel(`xo-race-${gameSession.id}`, {
         config: {
           broadcast: { self: false },
@@ -135,9 +164,8 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
           filter: `game_session_id=eq.${gameSession.id}`
         },
         (payload) => {
-          console.log('Real-time board update received:', payload);
+          console.log('🔔 تحديث فوري للوحة:', payload);
           const newData = payload.new as any;
-          const oldData = payload.old as any;
           
           if (newData.board_state) {
             let boardState: string[];
@@ -149,18 +177,19 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
               try {
                 boardState = JSON.parse(newData.board_state);
               } catch {
+                console.warn('فشل في تحليل board_state، استخدام القيمة كما هي');
                 boardState = newData.board_state;
               }
             } else {
               boardState = newData.board_state;
             }
             
-            console.log('Updating board from real-time:', oldData?.board_state, 'to:', boardState);
+            console.log('✅ تحديث اللوحة من التحديث الفوري:', boardState);
             
-            // التحديث الفوري مع المحافظة على العلامات الموجودة
+            // التحديث الفوري مع التأكد من الاختلاف
             setBoard(prevBoard => {
-              // التأكد من أن الحالة الجديدة مختلفة
               if (JSON.stringify(prevBoard) !== JSON.stringify(boardState)) {
+                console.log('🔄 تحديث الحالة من:', prevBoard, 'إلى:', boardState);
                 return boardState;
               }
               return prevBoard;
@@ -177,60 +206,44 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
           filter: `game_session_id=eq.${gameSession.id}`
         },
         (payload) => {
-          console.log('New match created via real-time:', payload);
+          console.log('📝 مباراة جديدة تم إنشاؤها:', payload);
           const newData = payload.new as any;
           if (newData.board_state && Array.isArray(newData.board_state)) {
-            console.log('Setting initial board state:', newData.board_state);
+            console.log('🎯 تعيين حالة اللوحة الأولية:', newData.board_state);
             setBoard(newData.board_state as string[]);
           }
         }
       )
       .subscribe((status) => {
-        console.log('Real-time subscription status:', status);
+        console.log('📡 حالة الاشتراك:', status);
         if (status === 'SUBSCRIBED') {
-          console.log('✅ Real-time subscription active for game:', gameSession.id);
+          console.log('✅ الاشتراك نشط للعبة:', gameSession.id);
         } else if (status === 'CHANNEL_ERROR') {
-          console.error('❌ Real-time subscription error for game:', gameSession.id);
+          console.error('❌ خطأ في الاشتراك للعبة:', gameSession.id);
         }
       });
-
-    return () => {
-      console.log('Cleaning up real-time subscription');
-      supabase.removeChannel(channel);
-    };
-  }, [gameSession.id, user?.id]);
-
-  // فحص الفائز عند تغيير اللوحة
-  useEffect(() => {
-    if (board.some(cell => cell !== '')) {
-      checkWinnerFromBoard(board);
-    }
-  }, [board, checkWinnerFromBoard]);
+  };
 
   // تحميل أسماء المستخدمين
-  useEffect(() => {
-    const fetchUsernames = async () => {
-      try {
-        const { data: player1Data } = await supabase.rpc('get_public_username', { 
-          user_id_input: gameSession.player1_id 
-        });
-        const { data: player2Data } = await supabase.rpc('get_public_username', { 
-          user_id_input: gameSession.player2_id 
-        });
+  const fetchUsernames = useCallback(async () => {
+    try {
+      const { data: player1Data } = await supabase.rpc('get_public_username', { 
+        user_id_input: gameSession.player1_id 
+      });
+      const { data: player2Data } = await supabase.rpc('get_public_username', { 
+        user_id_input: gameSession.player2_id 
+      });
 
-        setPlayer1Username(player1Data?.[0]?.username || 'لاعب 1');
-        setPlayer2Username(player2Data?.[0]?.username || 'لاعب 2');
-      } catch (error) {
-        console.error('Error fetching usernames:', error);
-        setPlayer1Username('لاعب 1');
-        setPlayer2Username('لاعب 2');
-      }
-    };
-
-    fetchUsernames();
+      setPlayer1Username(player1Data?.[0]?.username || 'لاعب 1');
+      setPlayer2Username(player2Data?.[0]?.username || 'لاعب 2');
+    } catch (error) {
+      console.error('خطأ في تحميل أسماء المستخدمين:', error);
+      setPlayer1Username('لاعب 1');
+      setPlayer2Username('لاعب 2');
+    }
   }, [gameSession.player1_id, gameSession.player2_id]);
 
-  // تحميل سؤال جديد لجميع اللاعبين
+  // تحميل سؤال جديد
   const loadNewQuestion = async () => {
     try {
       const { data, error } = await supabase.rpc('get_random_math_question');
@@ -250,12 +263,12 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
         setQuestionStartTime(Date.now());
       }
     } catch (error) {
-      console.error('Error loading question:', error);
+      console.error('خطأ في تحميل السؤال:', error);
       toast.error('خطأ في تحميل السؤال');
     }
   };
 
-  // معالجة النقر على الخلية - بداية السباق
+  // معالجة النقر على الخلية
   const handleCellClick = (index: number) => {
     if (board[index] || gameStatus !== 'playing') return;
     
@@ -263,13 +276,14 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
     loadNewQuestion();
   };
 
-  // معالجة الإجابة على السؤال - سباق السرعة
+  // معالجة الإجابة على السؤال
   const handleMathAnswer = async (answer: number, isCorrect: boolean) => {
     if (selectedCell === null || !mathQuestion || !raceMode) return;
 
     const responseTime = Date.now() - questionStartTime;
     
     try {
+      // التحقق من صحة الإجابة
       const { data: validationData, error: validationError } = await supabase.rpc('validate_generated_math_answer', {
         question_text: mathQuestion.question,
         user_answer: answer
@@ -280,69 +294,67 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
       const actualIsCorrect = validationData?.[0]?.is_correct || false;
 
       if (actualIsCorrect) {
+        console.log('✅ إجابة صحيحة! تحديث اللوحة...');
+        
         // تحضير اللوحة الجديدة
         const newBoard = [...board];
         newBoard[selectedCell] = playerSymbol;
         
-        console.log('Player answered correctly, updating board:', {
-          from: board,
-          to: newBoard,
-          cell: selectedCell,
-          symbol: playerSymbol,
-          sessionId: gameSession.id
+        console.log('📊 تحديث اللوحة:', {
+          من: board,
+          إلى: newBoard,
+          الخلية: selectedCell,
+          الرمز: playerSymbol,
+          معرف_الجلسة: gameSession.id
         });
         
-        try {
-          // تحديث قاعدة البيانات أولاً - تحويل المصفوفة إلى JSON أولاً
-          const { data: updateResult, error: updateError } = await supabase.rpc('update_xo_board', {
-            p_game_session_id: gameSession.id,
-            p_new_board: JSON.stringify(newBoard), // تحويل إلى JSON string ليتم التعامل معه كـ jsonb
-            p_player_id: user?.id
-          });
+        // تحديث قاعدة البيانات
+        const { data: updateResult, error: updateError } = await supabase.rpc('update_xo_board', {
+          p_game_session_id: gameSession.id,
+          p_new_board: JSON.stringify(newBoard),
+          p_player_id: user?.id
+        });
 
-          console.log('Database update result:', { updateResult, updateError });
+        console.log('💾 نتيجة تحديث قاعدة البيانات:', { updateResult, updateError });
 
-          if (updateError) {
-            console.error('Error updating board:', updateError);
-            toast.error('خطأ في تحديث اللوحة');
-            return;
-          }
-
-          const result = updateResult as any;
-          if (result?.success) {
-            console.log('Board updated successfully in database');
-            
-            // تحديث الحالة المحلية بعد نجاح قاعدة البيانات
-            setBoard(newBoard);
-            
-            // تسجيل النشاط
-            try {
-              await logActivity('race_move_made', {
-                cell: selectedCell,
-                symbol: playerSymbol,
-                question: mathQuestion?.question,
-                answer: answer,
-                response_time: responseTime,
-                board: newBoard
-              });
-            } catch (logError) {
-              console.error('Error logging activity:', logError);
-            }
-
-            toast.success(`🎯 إجابة صحيحة! وقت الاستجابة: ${responseTime}ms`);
-          } else {
-            console.error('Database update failed:', updateResult);
-            toast.error('فشل في تحديث اللوحة');
-          }
-        } catch (dbError) {
-          console.error('Error in database update:', dbError);
+        if (updateError) {
+          console.error('❌ خطأ في تحديث اللوحة:', updateError);
           toast.error('خطأ في تحديث اللوحة');
+          return;
+        }
+
+        const result = updateResult as any;
+        if (result?.success) {
+          console.log('✅ تم تحديث اللوحة بنجاح في قاعدة البيانات');
+          
+          // تحديث الحالة المحلية فوراً
+          setBoard(newBoard);
+          
+          // تسجيل النشاط
+          try {
+            await logActivity('race_move_made', {
+              cell: selectedCell,
+              symbol: playerSymbol,
+              question: mathQuestion?.question || '',
+              answer: answer,
+              response_time: responseTime,
+              board: newBoard
+            });
+          } catch (logError) {
+            console.error('خطأ في تسجيل النشاط:', logError);
+          }
+
+          toast.success(`🎯 إجابة صحيحة! وقت الاستجابة: ${responseTime}ms`);
+        } else {
+          console.error('❌ فشل تحديث قاعدة البيانات:', updateResult);
+          toast.error(result?.message || 'فشل في تحديث اللوحة');
         }
       } else {
+        console.log('❌ إجابة خاطئة');
         toast.error('💫 إجابة خاطئة! حاول مرة أخرى');
       }
     } catch (error) {
-      console.error('Error validating answer:', error);
+      console.error('خطأ في التحقق من الإجابة:', error);
       toast.error('خطأ في التحقق من الإجابة');
     }
 
@@ -382,7 +394,7 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
         }
       }
     } catch (error) {
-      console.error('Error handling game end:', error);
+      console.error('خطأ في معالجة نهاية اللعبة:', error);
       toast.error('خطأ في معالجة نتيجة المباراة');
     }
   };
@@ -399,9 +411,30 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
           activity_details: details
         });
     } catch (error) {
-      console.error('Error logging activity:', error);
+      console.error('خطأ في تسجيل النشاط:', error);
     }
   };
+
+  // التهيئة الأولية
+  useEffect(() => {
+    initializeGame();
+    fetchUsernames();
+
+    // تنظيف الاشتراك عند إلغاء التحميل
+    return () => {
+      console.log('🧹 تنظيف اشتراكات الوقت الفعلي');
+      if (subscriptionRef.current) {
+        supabase.removeChannel(subscriptionRef.current);
+      }
+    };
+  }, [initializeGame, fetchUsernames]);
+
+  // فحص الفائز عند تغيير اللوحة
+  useEffect(() => {
+    if (board.some(cell => cell !== '')) {
+      checkWinnerFromBoard(board);
+    }
+  }, [board, checkWinnerFromBoard]);
 
   // مؤقت العد التنازلي
   useEffect(() => {
@@ -410,6 +443,8 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
         setTimeLeft(prev => prev - 1);
       }, 1000);
       return () => clearInterval(timer);
+    } else if (showQuestion && timeLeft === 0) {
+      handleTimeUp();
     }
   }, [showQuestion, timeLeft]);
 
@@ -452,19 +487,13 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
               <span className="text-xs sm:text-sm font-medium">المتسابقون:</span>
               <div className="flex flex-wrap gap-2 items-center">
                 <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-red-100 border border-red-300">
-                  <span className="text-lg">❌</span>
-                  <Badge variant={gameSession.player1_id === user?.id ? 'default' : 'secondary'} className="text-xs">
-                    {player1Username}
-                  </Badge>
+                  <span className="text-xs font-bold text-red-600">❌</span>
+                  <span className="text-xs text-red-700">{player1Username}</span>
                 </div>
-                
-                <span className="text-muted-foreground text-xs font-bold px-2">⚡</span>
-                
+                <span className="text-xs text-muted-foreground">VS</span>
                 <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-blue-100 border border-blue-300">
-                  <span className="text-lg">⭕</span>
-                  <Badge variant={gameSession.player2_id === user?.id ? 'default' : 'secondary'} className="text-xs">
-                    {player2Username}
-                  </Badge>
+                  <span className="text-xs font-bold text-blue-600">⭕</span>
+                  <span className="text-xs text-blue-700">{player2Username}</span>
                 </div>
               </div>
             </div>
@@ -472,130 +501,107 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
         </CardContent>
       </Card>
 
-      {/* حالة اللعبة */}
-      {gameStatus === 'playing' ? (
-        <Card className="bg-gradient-to-r from-orange/10 via-accent/5 to-orange/10 border-orange/20 shadow-xl">
-          <CardContent className="pt-6">
-            <div className="text-center mb-4">
-              {raceMode ? (
-                <Badge variant="default" className="text-lg px-8 py-3 animate-pulse bg-gradient-to-r from-orange-500 to-red-500 shadow-lg">
-                  <Timer className="h-5 w-5 ml-2 animate-spin" />
-                  <span className="font-bold">🏃‍♂️ سباق السرعة! من يجيب أولاً يفوز!</span>
-                </Badge>
-              ) : (
-                <Badge variant="secondary" className="text-lg px-8 py-3 bg-gradient-to-r from-primary/20 to-accent/20 animate-pulse">
-                  <Zap className="h-5 w-5 ml-2 animate-bounce" />
-                  <span>⚡ اختر مربعاً لبدء السباق!</span>
-                </Badge>
-              )}
+      {/* السؤال الرياضي */}
+      {showQuestion && mathQuestion && (
+        <Card className="bg-gradient-to-r from-orange-50 to-red-50 border-orange-200 shadow-xl animate-in slide-in-from-top-5 duration-500">
+          <CardHeader className="text-center pb-2">
+            <CardTitle className="flex items-center justify-center gap-2 text-orange-600">
+              <Timer className="h-5 w-5 animate-spin" />
+              سباق السرعة!
+              <Timer className="h-5 w-5 animate-spin" />
+            </CardTitle>
+            <div className="flex items-center justify-center gap-2 mt-2">
+              <Clock className="h-4 w-4 text-red-500" />
+              <span className="font-bold text-red-500">{timeLeft} ثانية</span>
             </div>
-          </CardContent>
-        </Card>
-      ) : gameStatus === 'won' ? (
-        <Card className={`${showVictoryAnimation ? 'animate-scale-in' : ''} bg-gradient-to-r from-green-100 via-green-50 to-emerald-100 border-green-300 shadow-2xl relative overflow-hidden`}>
-          <CardContent className="pt-8 text-center relative">
-            {showVictoryAnimation && (
-              <div className="absolute inset-0 pointer-events-none">
-                {[...Array(25)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="absolute text-2xl animate-bounce"
-                    style={{
-                      left: `${Math.random() * 100}%`,
-                      top: `${Math.random() * 100}%`,
-                      animationDelay: `${Math.random() * 3}s`,
-                      animationDuration: `${1 + Math.random() * 2}s`
-                    }}
-                  >
-                    {['💰', '🎉', '🏆', '⭐', '🎊'][Math.floor(Math.random() * 5)]}
-                  </div>
-                ))}
-              </div>
-            )}
-            <div className="relative z-10">
-              <Trophy className="h-16 w-16 text-green-600 mx-auto mb-6 animate-pulse drop-shadow-lg" />
-              <h3 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent mb-4">
-                {winner === user?.id ? '🏆 فوز في السباق! 🏆' : '🎮 انتهى السباق'}
-              </h3>
-              <div className={`text-xl font-semibold p-4 rounded-lg ${winner === user?.id ? 'bg-green-200 text-green-800' : 'bg-gray-200 text-gray-800'}`}>
-                {winner === user?.id 
-                  ? `⚡ ربحت ${winnerEarnings.toFixed(2)} جنيه في السباق! ⚡` 
-                  : '😔 خسرت السباق هذه المرة'
-                }
-              </div>
-              {winner === user?.id && (
-                <div className="mt-4 space-y-2">
-                  <p className="text-green-600 font-medium animate-fade-in">
-                    🚀 سرعة رائعة! استمر في السباق!
-                  </p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card className="bg-gradient-to-r from-yellow-100 via-yellow-50 to-orange-100 border-yellow-300 shadow-xl">
-          <CardContent className="pt-8 text-center">
-            <Users className="h-16 w-16 text-yellow-600 mx-auto mb-6 animate-pulse drop-shadow-lg" />
-            <h3 className="text-3xl font-bold bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-transparent mb-4">
-              🤝 تعادل في السباق!
-            </h3>
-            <div className="text-xl font-semibold p-4 bg-yellow-200 text-yellow-800 rounded-lg mb-4">
-              💰 تم إرجاع مبلغ الرهان لكلا المتسابقين
-            </div>
-            <p className="text-yellow-600 font-medium animate-pulse">🏃‍♂️ سباق متقارب! جرب مرة أخرى!</p>
+          </CardHeader>
+          <CardContent>
+            <MathQuestion
+              question={mathQuestion.question}
+              questionId={mathQuestion.id}
+              timeLeft={timeLeft}
+              onAnswer={handleMathAnswer}
+              onTimeUp={handleTimeUp}
+            />
           </CardContent>
         </Card>
       )}
 
-      <div className="flex flex-col space-y-4 lg:grid lg:grid-cols-2 lg:gap-6 lg:space-y-0">
-        {/* لوحة اللعب */}
-        <div className="flex justify-center order-1 lg:order-1">
+      {/* حالة اللعبة */}
+      {gameStatus !== 'playing' && (
+        <Card className={`text-center shadow-2xl border-4 ${
+          gameStatus === 'won' ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-300' : 'bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-300'
+        } animate-in zoom-in-95 duration-1000`}>
+          <CardContent className="py-8">
+            <div className="space-y-4">
+              {gameStatus === 'won' && winner && (
+                <div className="space-y-3">
+                  <div className="text-6xl animate-bounce">🎉</div>
+                  <h2 className="text-2xl sm:text-3xl font-bold text-green-600">
+                    {winner === user?.id ? 'تهانينا! 🏆' : 'انتهت المباراة 😔'}
+                  </h2>
+                  <p className="text-lg text-green-700">
+                    الفائز: {winner === gameSession.player1_id ? player1Username : player2Username}
+                  </p>
+                  {winner === user?.id && (
+                    <p className="text-xl font-bold text-green-800">
+                      ربحت {winnerEarnings.toFixed(2)} جنيه! 💰
+                    </p>
+                  )}
+                </div>
+              )}
+              
+              {gameStatus === 'draw' && (
+                <div className="space-y-3">
+                  <div className="text-6xl animate-pulse">🤝</div>
+                  <h2 className="text-2xl sm:text-3xl font-bold text-yellow-600">تعادل!</h2>
+                  <p className="text-lg text-yellow-700">تم إرجاع مبلغ الرهان لكلا اللاعبين</p>
+                </div>
+              )}
+              
+              <Button onClick={onExit} size="lg" className="mt-6 hover:scale-105 transition-all duration-300">
+                العودة للألعاب
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* لوحة اللعب */}
+      {gameStatus === 'playing' && (
+        <div className="flex justify-center">
           <XOBoard
             board={board}
             onCellClick={handleCellClick}
-            currentPlayer={playerSymbol}
-            disabled={gameStatus !== 'playing'}
+            currentPlayer="X"
+            disabled={showQuestion}
             playerSymbol={playerSymbol}
           />
         </div>
+      )}
 
-        {/* السؤال الرياضي */}
-        <div className="flex justify-center order-2 lg:order-2">
-          {showQuestion && mathQuestion ? (
-            <MathQuestion
-              question={mathQuestion.question}
-              questionId={mathQuestion.id}
-              onAnswer={handleMathAnswer}
-              timeLeft={timeLeft}
-              onTimeUp={handleTimeUp}
-            />
-          ) : (
-            <Card className="w-full max-w-md bg-gradient-to-br from-primary/5 via-accent/5 to-primary/10 border-2 border-dashed border-primary/30 shadow-lg">
-              <CardContent className="pt-8 text-center">
-                <div className="space-y-4">
-                  <div className="animate-pulse">
-                    <Zap className="h-16 w-16 mx-auto text-primary/60 mb-4" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-foreground mb-2">
-                    🎯 جاهز للسباق؟
-                  </h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    اختر أي مربع لبدء سباق سريع! 🏃‍♂️<br />
-                    أول من يجيب بشكل صحيح يضع علامته
-                  </p>
-                  <div className="pt-4">
-                    <Badge variant="outline" className="animate-pulse">
-                      <Clock className="h-4 w-4 ml-1" />
-                      في انتظار الاختيار...
-                    </Badge>
-                  </div>
+      {/* رسالة انتظار */}
+      {gameStatus === 'playing' && !showQuestion && selectedCell === null && (
+        <Card className="text-center bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200 shadow-xl">
+          <CardContent className="py-6">
+            <div className="space-y-3">
+              <div className="text-4xl animate-pulse">🎯</div>
+              <h3 className="text-lg font-bold text-blue-600">اختر مربعاً لبدء السباق!</h3>
+              <p className="text-sm text-blue-700">
+                اضغط على أي مربع فارغ لتظهر لك مسألة رياضية
+              </p>
+              <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground mt-4">
+                <span>رمزك:</span>
+                <div className="px-2 py-1 rounded bg-primary/10 border border-primary/20">
+                  <span className="font-bold text-primary">
+                    {playerSymbol === 'X' ? '❌' : '⭕'} {playerSymbol}
+                  </span>
                 </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

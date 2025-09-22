@@ -598,17 +598,11 @@ export type Database = {
         Returns: boolean
       }
       update_xo_board: {
-        Args:
-          | {
-              p_game_session_id: string
-              p_new_board: Json
-              p_player_id: string
-            }
-          | {
-              p_game_session_id: string
-              p_new_board: string
-              p_player_id: string
-            }
+        Args: {
+          p_game_session_id: string
+          p_new_board: string
+          p_player_id: string
+        }
         Returns: Json
       }
       validate_generated_math_answer: {
