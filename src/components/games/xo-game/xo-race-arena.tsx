@@ -308,29 +308,28 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
           معرف_الجلسة: gameSession.id
         });
         
-        // تحديث قاعدة البيانات مباشرة
-        const { data: updateResult, error: updateError } = await supabase
-          .from('xo_matches')
-          .update({ 
-            board_state: newBoard,
-            updated_at: new Date().toISOString()
-          })
-          .eq('game_session_id', gameSession.id)
-          .select();
+        // تحديث اللوحة المحلية فوراً
+        setBoard(newBoard);
+        
+        try {
+          // تحديث قاعدة البيانات
+          const { error: updateError } = await supabase
+            .from('xo_matches')
+            .update({ 
+              board_state: newBoard,
+              updated_at: new Date().toISOString()
+            })
+            .eq('game_session_id', gameSession.id);
 
-        console.log('💾 نتيجة تحديث قاعدة البيانات:', { updateResult, updateError });
+          if (updateError) {
+            console.error('❌ خطأ في تحديث اللوحة:', updateError);
+            // إعادة تعيين اللوحة في حالة الخطأ
+            setBoard(board);
+            toast.error('خطأ في تحديث اللوحة');
+            return;
+          }
 
-        if (updateError) {
-          console.error('❌ خطأ في تحديث اللوحة:', updateError);
-          toast.error('خطأ في تحديث اللوحة');
-          return;
-        }
-
-        if (updateResult && updateResult.length > 0) {
           console.log('✅ تم تحديث اللوحة بنجاح في قاعدة البيانات');
-          
-          // تحديث الحالة المحلية فوراً
-          setBoard(newBoard);
           
           // تسجيل النشاط
           try {
@@ -347,9 +346,12 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
           }
 
           toast.success(`🎯 إجابة صحيحة! وقت الاستجابة: ${responseTime}ms`);
-        } else {
-          console.error('❌ فشل تحديث قاعدة البيانات:', updateResult);
-          toast.error('فشل في تحديث اللوحة');
+          
+        } catch (error) {
+          console.error('❌ خطأ في تحديث قاعدة البيانات:', error);
+          // إعادة تعيين اللوحة في حالة الخطأ
+          setBoard(board);
+          toast.error('خطأ في تحديث اللوحة');
         }
       } else {
         console.log('❌ إجابة خاطئة');
