@@ -62,18 +62,30 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
   const checkWinnerFromBoard = useCallback((newBoard: string[]) => {
     const result = checkWinner(newBoard);
     if (result && gameStatus === 'playing') {
+      console.log('🏆 نتيجة المباراة:', result);
+      
       if (result === 'draw') {
         setGameStatus('draw');
         handleGameEnd('draw');
+        toast.info('🤝 تعادل! رصيدكم سيتم إرجاعه');
       } else {
         setGameStatus('won');
         const winnerId = result === 'X' ? gameSession.player1_id : gameSession.player2_id;
+        const winnerName = result === 'X' ? player1Username : player2Username;
+        const isCurrentUserWinner = winnerId === user?.id;
+        
         setWinner(winnerId);
         setShowVictoryAnimation(true);
         handleGameEnd('win', winnerId);
+        
+        if (isCurrentUserWinner) {
+          toast.success(`🎉 تهانينا! لقد فزت بالمباراة! 💰`);
+        } else {
+          toast.error(`😔 فاز ${winnerName} بالمباراة. حظ أوفر المرة القادمة!`);
+        }
       }
     }
-  }, [gameStatus, gameSession.player1_id, gameSession.player2_id]);
+  }, [gameStatus, gameSession.player1_id, gameSession.player2_id, player1Username, player2Username, user?.id]);
 
   // تحميل اللوحة الحالية والإعداد الأولي
   const initializeGame = useCallback(async () => {
@@ -190,6 +202,31 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
             setBoard(prevBoard => {
               if (JSON.stringify(prevBoard) !== JSON.stringify(boardState)) {
                 console.log('🔄 تحديث الحالة من:', prevBoard, 'إلى:', boardState);
+                
+                // إخفاء السؤال إذا كان اللاعب يحاول الإجابة على مربع محجوز
+                if (selectedCell !== null && boardState[selectedCell] !== '' && prevBoard[selectedCell] === '') {
+                  console.log('🚫 تم حجز المربع المختار من قبل لاعب آخر');
+                  setShowQuestion(false);
+                  setSelectedCell(null);
+                  toast.warning('تم حجز هذا المربع من قبل اللاعب الآخر! اختر مربع آخر');
+                }
+                
+                // إشعار عن تحرك اللاعب الآخر
+                const newMoves = boardState.filter((cell, index) => cell !== '' && prevBoard[index] === '');
+                if (newMoves.length > 0) {
+                  const moveIndex = boardState.findIndex((cell, index) => cell !== '' && prevBoard[index] === '');
+                  if (moveIndex !== -1) {
+                    const symbol = boardState[moveIndex];
+                    const isOwnMove = (symbol === 'X' && user?.id === gameSession.player1_id) || 
+                                    (symbol === 'O' && user?.id === gameSession.player2_id);
+                    
+                    if (!isOwnMove) {
+                      const otherPlayerName = symbol === 'X' ? player1Username : player2Username;
+                      toast.info(`🎯 ${otherPlayerName} حل المربع ${moveIndex + 1}! أسرع للمربع التالي!`);
+                    }
+                  }
+                }
+                
                 return boardState;
               }
               return prevBoard;
@@ -270,8 +307,18 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
 
   // معالجة النقر على الخلية
   const handleCellClick = (index: number) => {
-    if (board[index] || gameStatus !== 'playing') return;
+    console.log('🎯 محاولة اختيار المربع:', index, 'حالة المربع:', board[index]);
     
+    // التحقق من أن المربع فارغ وأن اللعبة قيد التشغيل
+    if (board[index] !== '' || gameStatus !== 'playing') {
+      console.log('❌ المربع محجوز أو اللعبة متوقفة');
+      if (board[index] !== '') {
+        toast.warning('هذا المربع محلول بالفعل! اختر مربع آخر');
+      }
+      return;
+    }
+    
+    console.log('✅ المربع متاح، بدء السؤال...');
     setSelectedCell(index);
     loadNewQuestion();
   };
@@ -308,10 +355,33 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
           معرف_الجلسة: gameSession.id
         });
         
-        // تحديث اللوحة المحلية فوراً
-        setBoard(newBoard);
-        
         try {
+          // تحديث قاعدة البيانات أولاً مع فحص الحالة
+          const { data: currentMatch, error: fetchError } = await supabase
+            .from('xo_matches')
+            .select('board_state')
+            .eq('game_session_id', gameSession.id)
+            .single();
+
+          if (fetchError) {
+            console.error('❌ خطأ في قراءة حالة اللوحة:', fetchError);
+            toast.error('خطأ في قراءة حالة اللوحة');
+            return;
+          }
+
+          // فحص ما إذا كان المربع لا يزال فارغاً
+          const currentBoard = Array.isArray(currentMatch.board_state) 
+            ? currentMatch.board_state 
+            : JSON.parse(currentMatch.board_state as string);
+
+          if (currentBoard[selectedCell] !== '') {
+            console.log('❌ المربع محجوز بالفعل من قبل لاعب آخر:', currentBoard[selectedCell]);
+            toast.warning('تم حجز هذا المربع من قبل اللاعب الآخر!');
+            setShowQuestion(false);
+            setSelectedCell(null);
+            return;
+          }
+
           // تحديث قاعدة البيانات
           const { error: updateError } = await supabase
             .from('xo_matches')
@@ -323,13 +393,14 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
 
           if (updateError) {
             console.error('❌ خطأ في تحديث اللوحة:', updateError);
-            // إعادة تعيين اللوحة في حالة الخطأ
-            setBoard(board);
             toast.error('خطأ في تحديث اللوحة');
             return;
           }
 
           console.log('✅ تم تحديث اللوحة بنجاح في قاعدة البيانات');
+          
+          // تحديث اللوحة المحلية بعد التأكد من نجاح التحديث
+          setBoard(newBoard);
           
           // تسجيل النشاط
           try {
@@ -349,8 +420,6 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
           
         } catch (error) {
           console.error('❌ خطأ في تحديث قاعدة البيانات:', error);
-          // إعادة تعيين اللوحة في حالة الخطأ
-          setBoard(board);
           toast.error('خطأ في تحديث اللوحة');
         }
       } else {
