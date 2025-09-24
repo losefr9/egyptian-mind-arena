@@ -308,12 +308,15 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
           معرف_الجلسة: gameSession.id
         });
         
-        // تحديث قاعدة البيانات
-        const { data: updateResult, error: updateError } = await supabase.rpc('update_xo_board', {
-          p_game_session_id: gameSession.id,
-          p_new_board: JSON.stringify(newBoard),
-          p_player_id: user?.id
-        });
+        // تحديث قاعدة البيانات مباشرة
+        const { data: updateResult, error: updateError } = await supabase
+          .from('xo_matches')
+          .update({ 
+            board_state: newBoard,
+            updated_at: new Date().toISOString()
+          })
+          .eq('game_session_id', gameSession.id)
+          .select();
 
         console.log('💾 نتيجة تحديث قاعدة البيانات:', { updateResult, updateError });
 
@@ -323,8 +326,7 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
           return;
         }
 
-        const result = updateResult as any;
-        if (result?.success) {
+        if (updateResult && updateResult.length > 0) {
           console.log('✅ تم تحديث اللوحة بنجاح في قاعدة البيانات');
           
           // تحديث الحالة المحلية فوراً
@@ -347,7 +349,7 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
           toast.success(`🎯 إجابة صحيحة! وقت الاستجابة: ${responseTime}ms`);
         } else {
           console.error('❌ فشل تحديث قاعدة البيانات:', updateResult);
-          toast.error(result?.message || 'فشل في تحديث اللوحة');
+          toast.error('فشل في تحديث اللوحة');
         }
       } else {
         console.log('❌ إجابة خاطئة');
