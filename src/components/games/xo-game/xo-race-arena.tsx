@@ -361,7 +361,7 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
             .from('xo_matches')
             .select('board_state')
             .eq('game_session_id', gameSession.id)
-            .single();
+            .maybeSingle();
 
           if (fetchError) {
             console.error('❌ خطأ في قراءة حالة اللوحة:', fetchError);
@@ -369,17 +369,45 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
             return;
           }
 
-          // فحص ما إذا كان المربع لا يزال فارغاً
-          const currentBoard = Array.isArray(currentMatch.board_state) 
-            ? currentMatch.board_state 
-            : JSON.parse(currentMatch.board_state as string);
+          // إنشاء مباراة جديدة إذا لم تكن موجودة
+          if (!currentMatch) {
+            console.log('📝 إنشاء سجل مباراة جديد...');
+            await supabase.rpc('create_new_xo_match', { session_id: gameSession.id });
+            
+            // إعادة قراءة البيانات
+            const { data: newMatch, error: newFetchError } = await supabase
+              .from('xo_matches')
+              .select('board_state')
+              .eq('game_session_id', gameSession.id)
+              .single();
+              
+            if (newFetchError || !newMatch) {
+              console.error('❌ خطأ في إنشاء المباراة:', newFetchError);
+              toast.error('خطأ في إنشاء المباراة');
+              return;
+            }
+            
+            const currentBoard = Array.isArray(newMatch.board_state) 
+              ? newMatch.board_state 
+              : JSON.parse(newMatch.board_state as string);
+              
+            if (currentBoard[selectedCell] !== '') {
+              toast.warning('هذا المربع محلول بالفعل! اختر مربع آخر');
+              return;
+            }
+          } else {
+            // فحص ما إذا كان المربع لا يزال فارغاً
+            const currentBoard = Array.isArray(currentMatch.board_state) 
+              ? currentMatch.board_state 
+              : JSON.parse(currentMatch.board_state as string);
 
-          if (currentBoard[selectedCell] !== '') {
-            console.log('❌ المربع محجوز بالفعل من قبل لاعب آخر:', currentBoard[selectedCell]);
-            toast.warning('تم حجز هذا المربع من قبل اللاعب الآخر!');
-            setShowQuestion(false);
-            setSelectedCell(null);
-            return;
+            if (currentBoard[selectedCell] !== '') {
+              console.log('❌ المربع محجوز بالفعل من قبل لاعب آخر:', currentBoard[selectedCell]);
+              toast.warning('تم حجز هذا المربع من قبل اللاعب الآخر!');
+              setShowQuestion(false);
+              setSelectedCell(null);
+              return;
+            }
           }
 
           // تحديث قاعدة البيانات
