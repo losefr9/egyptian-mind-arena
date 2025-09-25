@@ -379,7 +379,7 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
               .from('xo_matches')
               .select('board_state')
               .eq('game_session_id', gameSession.id)
-              .single();
+              .maybeSingle();
               
             if (newFetchError || !newMatch) {
               console.error('❌ خطأ في إنشاء المباراة:', newFetchError);
