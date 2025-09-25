@@ -8,6 +8,7 @@ interface XOBoardProps {
   currentPlayer: 'X' | 'O';
   disabled: boolean;
   playerSymbol: 'X' | 'O';
+  opponentSolving?: number | null;
 }
 
 export const XOBoard: React.FC<XOBoardProps> = ({
@@ -15,10 +16,12 @@ export const XOBoard: React.FC<XOBoardProps> = ({
   onCellClick,
   currentPlayer,
   disabled,
-  playerSymbol
+  playerSymbol,
+  opponentSolving
 }) => {
   const renderCell = (value: string, index: number) => {
     const isClickable = !disabled && !value;
+    const isOpponentSolving = opponentSolving === index;
     
     return (
       <Button
@@ -26,18 +29,26 @@ export const XOBoard: React.FC<XOBoardProps> = ({
         variant="outline"
         className={`
           aspect-square w-full text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold transition-all duration-500 transform 
-          ${isClickable ? 'hover:bg-gradient-to-br hover:from-primary/20 hover:to-accent/20 hover:border-primary hover:scale-110 hover:shadow-xl cursor-pointer animate-pulse hover:animate-none' : 'cursor-not-allowed opacity-70'}
-          ${value === 'X' ? 'text-red-500 bg-gradient-to-br from-red-50 to-red-100 border-red-300 animate-bounce shadow-lg' : value === 'O' ? 'text-blue-500 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-300 animate-bounce shadow-lg' : 'bg-gradient-to-br from-background to-muted/50 hover:from-primary/10 hover:to-accent/10'}
+          ${isClickable && !isOpponentSolving ? 'hover:bg-gradient-to-br hover:from-primary/20 hover:to-accent/20 hover:border-primary hover:scale-110 hover:shadow-xl cursor-pointer animate-pulse hover:animate-none' : 'cursor-not-allowed opacity-70'}
+          ${isOpponentSolving ? 'bg-gradient-to-br from-orange-200 to-orange-300 border-orange-400 animate-pulse shadow-lg' : ''}
+          ${value === 'X' ? 'text-red-500 bg-gradient-to-br from-red-50 to-red-100 border-red-300 animate-bounce shadow-lg' : value === 'O' ? 'text-blue-500 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-300 animate-bounce shadow-lg' : !isOpponentSolving ? 'bg-gradient-to-br from-background to-muted/50 hover:from-primary/10 hover:to-accent/10' : ''}
           ${value !== '' ? 'animate-scale-in shadow-xl' : 'hover:shadow-lg'}
           border-2 min-h-[60px] sm:min-h-[80px] md:min-h-[100px] rounded-lg relative overflow-hidden
-          ${value === '' && isClickable ? 'group' : ''}
+          ${value === '' && isClickable && !isOpponentSolving ? 'group' : ''}
         `}
-        onClick={() => isClickable && onCellClick(index)}
-        disabled={!isClickable}
+        onClick={() => isClickable && !isOpponentSolving && onCellClick(index)}
+        disabled={!isClickable || isOpponentSolving}
       >
         {/* تأثير التمرير للخلايا الفارغة */}
-        {value === '' && isClickable && (
+        {value === '' && isClickable && !isOpponentSolving && (
           <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-accent/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-lg"></div>
+        )}
+        
+        {/* مؤشر اللاعب الآخر يحل */}
+        {isOpponentSolving && (
+          <div className="absolute inset-0 bg-gradient-to-br from-orange-300/50 to-orange-500/50 animate-pulse rounded-lg flex items-center justify-center">
+            <span className="text-orange-700 font-bold text-sm animate-bounce">🏃‍♂️</span>
+          </div>
         )}
         
         {/* المحتوى */}
@@ -48,7 +59,7 @@ export const XOBoard: React.FC<XOBoardProps> = ({
           {value === 'O' && (
             <span className="drop-shadow-lg animate-bounce text-blue-600">⭕</span>
           )}
-          {value === '' && isClickable && (
+          {value === '' && isClickable && !isOpponentSolving && (
             <span className="opacity-30 group-hover:opacity-60 transition-opacity duration-300 text-muted-foreground">
               ⚡
             </span>

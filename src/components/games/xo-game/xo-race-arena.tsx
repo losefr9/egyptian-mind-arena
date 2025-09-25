@@ -34,7 +34,11 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
   const [showVictoryAnimation, setShowVictoryAnimation] = useState(false);
   const [raceMode, setRaceMode] = useState(false);
   const [questionStartTime, setQuestionStartTime] = useState<number>(0);
+  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
+  const [opponentSolving, setOpponentSolving] = useState<number | null>(null);
+  const [gameEndNotified, setGameEndNotified] = useState(false);
   const subscriptionRef = useRef<any>(null);
+  const retryTimeoutRef = useRef<any>(null);
 
   const playerSymbol = gameSession.player1_id === user?.id ? 'X' : 'O';
   const prizeAmount = gameSession.bet_amount * 2;
@@ -61,8 +65,9 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
 
   const checkWinnerFromBoard = useCallback((newBoard: string[]) => {
     const result = checkWinner(newBoard);
-    if (result && gameStatus === 'playing') {
+    if (result && gameStatus === 'playing' && !gameEndNotified) {
       console.log('🏆 نتيجة المباراة:', result);
+      setGameEndNotified(true);
       
       if (result === 'draw') {
         setGameStatus('draw');
@@ -79,13 +84,13 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
         handleGameEnd('win', winnerId);
         
         if (isCurrentUserWinner) {
-          toast.success(`🎉 تهانينا! لقد فزت بالمباراة! 💰`);
+          toast.success(`🎉 تهانينا! لقد فزت بالمباراة وحصلت على ${winnerEarnings.toFixed(2)} ريال! 💰`);
         } else {
           toast.error(`😔 فاز ${winnerName} بالمباراة. حظ أوفر المرة القادمة!`);
         }
       }
     }
-  }, [gameStatus, gameSession.player1_id, gameSession.player2_id, player1Username, player2Username, user?.id]);
+  }, [gameStatus, gameEndNotified, gameSession.player1_id, gameSession.player2_id, player1Username, player2Username, user?.id, winnerEarnings]);
 
   // تحميل اللوحة الحالية والإعداد الأولي
   const initializeGame = useCallback(async () => {
@@ -151,14 +156,16 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
     }
   };
 
-  // إعداد الاشتراك في الوقت الفعلي
-  const setupRealTimeSubscription = () => {
+  // إعداد الاشتراك في الوقت الفعلي مع retry mechanism
+  const setupRealTimeSubscription = useCallback(() => {
     console.log('📡 إعداد الاشتراك في التحديثات الفورية للعبة:', gameSession.id);
     
     // إزالة الاشتراك السابق إن وجد
     if (subscriptionRef.current) {
       supabase.removeChannel(subscriptionRef.current);
     }
+
+    setConnectionStatus('connecting');
 
     subscriptionRef.current = supabase
       .channel(`xo-race-${gameSession.id}`, {
@@ -208,7 +215,8 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
                   console.log('🚫 تم حجز المربع المختار من قبل لاعب آخر');
                   setShowQuestion(false);
                   setSelectedCell(null);
-                  toast.warning('تم حجز هذا المربع من قبل اللاعب الآخر! اختر مربع آخر');
+                  setOpponentSolving(null);
+                  toast.warning('⚡ اللاعب الآخر أسرع منك! اختر مربعاً آخر');
                 }
                 
                 // إشعار عن تحرك اللاعب الآخر
@@ -223,6 +231,7 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
                     if (!isOwnMove) {
                       const otherPlayerName = symbol === 'X' ? player1Username : player2Username;
                       toast.info(`🎯 ${otherPlayerName} حل المربع ${moveIndex + 1}! أسرع للمربع التالي!`);
+                      setOpponentSolving(null); // إخفاء مؤشر "يحل حالياً"
                     }
                   }
                 }
@@ -234,6 +243,20 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
           }
         }
       )
+      .on('broadcast', { event: 'opponent_solving' }, (payload) => {
+        const { cellIndex, playerId } = payload.payload;
+        if (playerId !== user?.id) {
+          setOpponentSolving(cellIndex);
+          console.log('👁️ اللاعب الآخر يحل مربع:', cellIndex);
+        }
+      })
+      .on('broadcast', { event: 'stop_solving' }, (payload) => {
+        const { playerId } = payload.payload;
+        if (playerId !== user?.id) {
+          setOpponentSolving(null);
+          console.log('✋ اللاعب الآخر توقف عن الحل');
+        }
+      })
       .on(
         'postgres_changes',
         {
@@ -255,11 +278,25 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
         console.log('📡 حالة الاشتراك:', status);
         if (status === 'SUBSCRIBED') {
           console.log('✅ الاشتراك نشط للعبة:', gameSession.id);
+          setConnectionStatus('connected');
+          // إلغاء أي محاولة إعادة اتصال معلقة
+          if (retryTimeoutRef.current) {
+            clearTimeout(retryTimeoutRef.current);
+            retryTimeoutRef.current = null;
+          }
         } else if (status === 'CHANNEL_ERROR') {
           console.error('❌ خطأ في الاشتراك للعبة:', gameSession.id);
+          setConnectionStatus('disconnected');
+          // محاولة إعادة الاتصال بعد 3 ثوانٍ
+          retryTimeoutRef.current = setTimeout(() => {
+            console.log('🔄 محاولة إعادة الاتصال...');
+            setupRealTimeSubscription();
+          }, 3000);
+        } else if (status === 'CLOSED') {
+          setConnectionStatus('disconnected');
         }
       });
-  };
+  }, [gameSession.id, user?.id, selectedCell, player1Username, player2Username]);
 
   // تحميل أسماء المستخدمين
   const fetchUsernames = useCallback(async () => {
@@ -317,9 +354,25 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
       }
       return;
     }
+
+    // التحقق من أن اللاعب الآخر لا يحل نفس المربع
+    if (opponentSolving === index) {
+      toast.warning('🏃‍♂️ اللاعب الآخر يحل هذا المربع حالياً! اختر مربعاً آخر');
+      return;
+    }
     
     console.log('✅ المربع متاح، بدء السؤال...');
     setSelectedCell(index);
+    
+    // إشعار اللاعب الآخر أن هذا المربع قيد الحل
+    if (subscriptionRef.current) {
+      subscriptionRef.current.send({
+        type: 'broadcast',
+        event: 'opponent_solving',
+        payload: { cellIndex: index, playerId: user?.id }
+      });
+    }
+    
     loadNewQuestion();
   };
 
@@ -468,11 +521,22 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
 
   // معالجة انتهاء الوقت
   const handleTimeUp = () => {
+    console.log('⏰ انتهى الوقت للسؤال');
+    
+    // إشعار اللاعب الآخر أن الحل توقف
+    if (subscriptionRef.current && selectedCell !== null) {
+      subscriptionRef.current.send({
+        type: 'broadcast',
+        event: 'stop_solving',
+        payload: { playerId: user?.id }
+      });
+    }
+    
     setSelectedCell(null);
     setMathQuestion(null);
     setShowQuestion(false);
     setRaceMode(false);
-    toast.warning('⏰ انتهى الوقت! حاول مرة أخرى');
+    toast.error('⏰ انتهى الوقت! اختر مربعاً آخر بسرعة');
   };
 
   // معالجة انتهاء اللعبة
@@ -526,6 +590,9 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
       console.log('🧹 تنظيف اشتراكات الوقت الفعلي');
       if (subscriptionRef.current) {
         supabase.removeChannel(subscriptionRef.current);
+      }
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
       }
     };
   }, [initializeGame, fetchUsernames]);
@@ -598,6 +665,24 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
                 </div>
               </div>
             </div>
+          </div>
+          
+          {/* مؤشر حالة الاتصال */}
+          <div className="flex items-center justify-center gap-2 mt-4 pt-3 border-t border-primary/20">
+            <div className={`w-2 h-2 rounded-full ${
+              connectionStatus === 'connected' ? 'bg-green-500 animate-pulse' : 
+              connectionStatus === 'connecting' ? 'bg-yellow-500 animate-spin' : 'bg-red-500'
+            }`}></div>
+            <span className="text-xs text-muted-foreground">
+              {connectionStatus === 'connected' ? 'متصل' : 
+               connectionStatus === 'connecting' ? 'جاري الاتصال...' : 'منقطع'}
+            </span>
+            {opponentSolving !== null && (
+              <div className="ml-4 flex items-center gap-1 text-xs text-orange-600 animate-pulse">
+                <span>🏃‍♂️</span>
+                <span>اللاعب الآخر يحل المربع {opponentSolving + 1}</span>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -677,6 +762,7 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
             currentPlayer="X"
             disabled={showQuestion}
             playerSymbol={playerSymbol}
+            opponentSolving={opponentSolving}
           />
         </div>
       )}
