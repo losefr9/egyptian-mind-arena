@@ -425,18 +425,58 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
           // إنشاء مباراة جديدة إذا لم تكن موجودة
           if (!currentMatch) {
             console.log('📝 إنشاء سجل مباراة جديد...');
-            await supabase.rpc('create_new_xo_match', { session_id: gameSession.id });
             
-            // إعادة قراءة البيانات
-            const { data: newMatch, error: newFetchError } = await supabase
-              .from('xo_matches')
-              .select('board_state')
-              .eq('game_session_id', gameSession.id)
-              .maybeSingle();
+            // محاولة إنشاء المباراة باستخدام RPC
+            const { error: rpcError } = await supabase.rpc('create_new_xo_match', { 
+              session_id: gameSession.id 
+            });
+            
+            if (rpcError) {
+              console.error('❌ خطأ في RPC إنشاء المباراة:', rpcError);
+              // محاولة إنشاء مباشر إذا فشل RPC
+              const { error: insertError } = await supabase
+                .from('xo_matches')
+                .insert({
+                  game_session_id: gameSession.id,
+                  board_state: ['', '', '', '', '', '', '', '', ''],
+                  match_status: 'playing',
+                  current_turn_player_id: user?.id
+                });
+                
+              if (insertError) {
+                console.error('❌ خطأ في إنشاء المباراة مباشرة:', insertError);
+                toast.error('خطأ في إنشاء المباراة');
+                return;
+              }
+            }
+            
+            // إعادة قراءة البيانات مع retry
+            let retries = 3;
+            let newMatch = null;
+            
+            while (retries > 0 && !newMatch) {
+              const { data: matchData, error: newFetchError } = await supabase
+                .from('xo_matches')
+                .select('board_state')
+                .eq('game_session_id', gameSession.id)
+                .maybeSingle();
+                
+              if (newFetchError) {
+                console.error('❌ خطأ في قراءة المباراة الجديدة:', newFetchError);
+                retries--;
+                if (retries > 0) {
+                  await new Promise(resolve => setTimeout(resolve, 500)); // انتظار نصف ثانية
+                }
+                continue;
+              }
               
-            if (newFetchError || !newMatch) {
-              console.error('❌ خطأ في إنشاء المباراة:', newFetchError);
-              toast.error('خطأ في إنشاء المباراة');
+              newMatch = matchData;
+              break;
+            }
+              
+            if (!newMatch) {
+              console.error('❌ فشل في إنشاء أو قراءة المباراة بعد عدة محاولات');
+              toast.error('فشل في إنشاء المباراة، يرجى المحاولة مرة أخرى');
               return;
             }
             
