@@ -37,8 +37,12 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
   const [opponentSolving, setOpponentSolving] = useState<number | null>(null);
   const [gameEndNotified, setGameEndNotified] = useState(false);
+  const [lockedCells, setLockedCells] = useState<Set<number>>(new Set());
+  const [pendingMove, setPendingMove] = useState<{cellIndex: number, symbol: string} | null>(null);
+  const [lastBoardUpdate, setLastBoardUpdate] = useState<string>('');
   const subscriptionRef = useRef<any>(null);
   const retryTimeoutRef = useRef<any>(null);
+  const boardSyncRef = useRef<string[]>(Array(9).fill(''));
 
   const playerSymbol = gameSession.player1_id === user?.id ? 'X' : 'O';
   const prizeAmount = gameSession.bet_amount * 2;
@@ -91,6 +95,19 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
       }
     }
   }, [gameStatus, gameEndNotified, gameSession.player1_id, gameSession.player2_id, player1Username, player2Username, user?.id, winnerEarnings]);
+
+  // قفل مؤقت للخلايا لمنع التضارب
+  const lockCell = useCallback((cellIndex: number) => {
+    setLockedCells(prev => new Set([...prev, cellIndex]));
+    // فك القفل تلقائياً بعد 20 ثانية
+    setTimeout(() => {
+      setLockedCells(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(cellIndex);
+        return newSet;
+      });
+    }, 20000);
+  }, []);
 
   // تحميل اللوحة الحالية والإعداد الأولي
   const initializeGame = useCallback(async () => {
@@ -205,41 +222,79 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
             
             console.log('✅ تحديث اللوحة من التحديث الفوري:', boardState);
             
-            // التحديث الفوري مع التأكد من الاختلاف
-            setBoard(prevBoard => {
-              if (JSON.stringify(prevBoard) !== JSON.stringify(boardState)) {
-                console.log('🔄 تحديث الحالة من:', prevBoard, 'إلى:', boardState);
-                
-                // إخفاء السؤال إذا كان اللاعب يحاول الإجابة على مربع محجوز
-                if (selectedCell !== null && boardState[selectedCell] !== '' && prevBoard[selectedCell] === '') {
-                  console.log('🚫 تم حجز المربع المختار من قبل لاعب آخر');
-                  setShowQuestion(false);
-                  setSelectedCell(null);
-                  setOpponentSolving(null);
-                  toast.warning('⚡ اللاعب الآخر أسرع منك! اختر مربعاً آخر');
-                }
-                
-                // إشعار عن تحرك اللاعب الآخر
-                const newMoves = boardState.filter((cell, index) => cell !== '' && prevBoard[index] === '');
-                if (newMoves.length > 0) {
-                  const moveIndex = boardState.findIndex((cell, index) => cell !== '' && prevBoard[index] === '');
-                  if (moveIndex !== -1) {
-                    const symbol = boardState[moveIndex];
-                    const isOwnMove = (symbol === 'X' && user?.id === gameSession.player1_id) || 
-                                    (symbol === 'O' && user?.id === gameSession.player2_id);
-                    
-                    if (!isOwnMove) {
-                      const otherPlayerName = symbol === 'X' ? player1Username : player2Username;
-                      toast.info(`🎯 ${otherPlayerName} حل المربع ${moveIndex + 1}! أسرع للمربع التالي!`);
-                      setOpponentSolving(null); // إخفاء مؤشر "يحل حالياً"
+            // التحديث الذكي مع منع التضارب
+            const boardKey = JSON.stringify(boardState);
+            if (lastBoardUpdate !== boardKey) {
+              setLastBoardUpdate(boardKey);
+              boardSyncRef.current = boardState;
+              
+              setBoard(prevBoard => {
+                if (JSON.stringify(prevBoard) !== JSON.stringify(boardState)) {
+                  console.log('🔄 تحديث الحالة من:', prevBoard, 'إلى:', boardState);
+                  
+                  // تحديث قائمة الخلايا المقفلة
+                  const newLockedCells = new Set<number>();
+                  boardState.forEach((cell, index) => {
+                    if (cell !== '' && prevBoard[index] === '') {
+                      newLockedCells.add(index);
+                    }
+                  });
+                  
+                  // إخفاء السؤال إذا كان اللاعب يحاول الإجابة على مربع محجوز
+                  if (selectedCell !== null && boardState[selectedCell] !== '' && prevBoard[selectedCell] === '') {
+                    console.log('🚫 تم حجز المربع المختار من قبل لاعب آخر');
+                    setShowQuestion(false);
+                    setSelectedCell(null);
+                    setOpponentSolving(null);
+                    setPendingMove(null);
+                    // فك قفل الخلية
+                    setLockedCells(prev => {
+                      const newSet = new Set(prev);
+                      newSet.delete(selectedCell);
+                      return newSet;
+                    });
+                    toast.warning('⚡ اللاعب الآخر أسرع منك! اختر مربعاً آخر');
+                  }
+                  
+                  // إشعار عن تحرك اللاعب الآخر مع تأثيرات بصرية
+                  const newMoves = boardState.filter((cell, index) => cell !== '' && prevBoard[index] === '');
+                  if (newMoves.length > 0) {
+                    const moveIndex = boardState.findIndex((cell, index) => cell !== '' && prevBoard[index] === '');
+                    if (moveIndex !== -1) {
+                      const symbol = boardState[moveIndex];
+                      const isOwnMove = (symbol === 'X' && user?.id === gameSession.player1_id) || 
+                                      (symbol === 'O' && user?.id === gameSession.player2_id);
+                      
+                      if (!isOwnMove) {
+                        const otherPlayerName = symbol === 'X' ? player1Username : player2Username;
+                        toast.success(`🎯 ${otherPlayerName} حل المربع ${moveIndex + 1}!`, {
+                          duration: 2000,
+                          style: { background: 'var(--accent)', color: 'var(--accent-foreground)' }
+                        });
+                        setOpponentSolving(null);
+                      } else {
+                        // تأكيد الحركة الخاصة
+                        toast.success('✅ تم تأكيد حركتك بنجاح!', {
+                          duration: 1500,
+                          style: { background: 'var(--primary)', color: 'var(--primary-foreground)' }
+                        });
+                        setPendingMove(null);
+                      }
+                      
+                      // فك قفل الخلية
+                      setLockedCells(prev => {
+                        const newSet = new Set(prev);
+                        newSet.delete(moveIndex);
+                        return newSet;
+                      });
                     }
                   }
+                  
+                  return boardState;
                 }
-                
-                return boardState;
-              }
-              return prevBoard;
-            });
+                return prevBoard;
+              });
+            }
           }
         }
       )
@@ -346,8 +401,25 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
   const handleCellClick = (index: number) => {
     console.log('🎯 محاولة اختيار المربع:', index, 'حالة المربع:', board[index]);
     
-    // التحقق من أن المربع فارغ وأن اللعبة قيد التشغيل
-    if (board[index] !== '' || gameStatus !== 'playing') {
+    // التحقق الشامل للخلية
+    const currentBoard = boardSyncRef.current;
+    const isCellEmpty = currentBoard[index] === '' && board[index] === '';
+    const isCellLocked = lockedCells.has(index);
+    const isGameActive = gameStatus === 'playing';
+    const isAlreadySolving = showQuestion && selectedCell !== null;
+    
+    console.log('🔍 فحص الخلية:', {
+      index,
+      isCellEmpty,
+      isCellLocked,
+      isGameActive,
+      isAlreadySolving,
+      currentBoard: currentBoard[index],
+      localBoard: board[index]
+    });
+    
+    // التحقق من صحة الحركة
+    if (!isCellEmpty || !isGameActive || isCellLocked || isAlreadySolving) {
       console.log('❌ المربع محجوز أو اللعبة متوقفة');
       if (board[index] !== '') {
         toast.warning('هذا المربع محلول بالفعل! اختر مربع آخر');
@@ -503,25 +575,65 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
             }
           }
 
-          // تحديث قاعدة البيانات
-          const { error: updateError } = await supabase
-            .from('xo_matches')
-            .update({ 
-              board_state: newBoard,
-              updated_at: new Date().toISOString()
-            })
-            .eq('game_session_id', gameSession.id);
+          // إنشاء نسخة جديدة من اللوحة مع تحديث optimistic
+          const newBoard = [...board];
+          newBoard[selectedCell] = playerSymbol;
+          
+          // تعيين الحركة المعلقة للمتابعة
+          setPendingMove({ cellIndex: selectedCell, symbol: playerSymbol });
 
-          if (updateError) {
-            console.error('❌ خطأ في تحديث اللوحة:', updateError);
-            toast.error('خطأ في تحديث اللوحة');
+          // تحديث قاعدة البيانات مع آلية retry
+          let updateSuccess = false;
+          let retryCount = 0;
+          const maxRetries = 3;
+          
+          while (!updateSuccess && retryCount < maxRetries) {
+            try {
+              const { error: updateError } = await supabase
+                .from('xo_matches')
+                .update({ 
+                  board_state: newBoard,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('game_session_id', gameSession.id);
+
+              if (!updateError) {
+                updateSuccess = true;
+                console.log('✅ تم تحديث اللوحة بنجاح في قاعدة البيانات');
+                
+                // تحديث المرجع المحلي
+                boardSyncRef.current = newBoard;
+                
+                // التحديث optimistic للوحة المحلية
+                setBoard(newBoard);
+                
+              } else {
+                console.error(`❌ خطأ في تحديث اللوحة (محاولة ${retryCount + 1}):`, updateError);
+                retryCount++;
+                if (retryCount < maxRetries) {
+                  await new Promise(resolve => setTimeout(resolve, 200 * retryCount));
+                }
+              }
+            } catch (error) {
+              console.error(`❌ خطأ في الاتصال (محاولة ${retryCount + 1}):`, error);
+              retryCount++;
+              if (retryCount < maxRetries) {
+                await new Promise(resolve => setTimeout(resolve, 500 * retryCount));
+              }
+            }
+          }
+          
+          if (!updateSuccess) {
+            toast.error('❌ فشل في تحديث اللوحة، يرجى المحاولة مرة أخرى');
+            setPendingMove(null);
+            // فك قفل الخلية
+            setLockedCells(prev => {
+              const newSet = new Set(prev);
+              newSet.delete(selectedCell);
+              return newSet;
+            });
             return;
           }
-
-          console.log('✅ تم تحديث اللوحة بنجاح في قاعدة البيانات');
-          
-          // تحديث اللوحة المحلية بعد التأكد من نجاح التحديث
-          setBoard(newBoard);
           
           // تسجيل النشاط
           try {
@@ -537,7 +649,10 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
             console.error('خطأ في تسجيل النشاط:', logError);
           }
 
-          toast.success(`🎯 إجابة صحيحة! وقت الاستجابة: ${responseTime}ms`);
+          toast.success(`🎯 إجابة صحيحة! وقت الاستجابة: ${responseTime}ms`, {
+            duration: 2000,
+            style: { background: 'var(--primary)', color: 'var(--primary-foreground)' }
+          });
           
         } catch (error) {
           console.error('❌ خطأ في تحديث قاعدة البيانات:', error);
@@ -545,23 +660,52 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
         }
       } else {
         console.log('❌ إجابة خاطئة');
-        toast.error('💫 إجابة خاطئة! حاول مرة أخرى');
+        toast.error('💫 إجابة خاطئة! حاول مرة أخرى', {
+          duration: 1500,
+          style: { background: 'var(--destructive)', color: 'var(--destructive-foreground)' }
+        });
+        
+        // فك قفل الخلية عند الإجابة الخاطئة
+        setLockedCells(prev => {
+          const newSet = new Set(prev);
+          if (selectedCell !== null) newSet.delete(selectedCell);
+          return newSet;
+        });
       }
     } catch (error) {
       console.error('خطأ في التحقق من الإجابة:', error);
       toast.error('خطأ في التحقق من الإجابة');
     }
 
-    // إنهاء السباق
+    // إنهاء السباق وتنظيف الحالة
     setSelectedCell(null);
     setMathQuestion(null);
     setShowQuestion(false);
     setRaceMode(false);
+    setPendingMove(null);
+    
+    // إشعار الخصم أن الحل انتهى
+    if (subscriptionRef.current) {
+      subscriptionRef.current.send({
+        type: 'broadcast',
+        event: 'stop_solving',
+        payload: { playerId: user?.id }
+      });
+    }
   };
 
   // معالجة انتهاء الوقت
   const handleTimeUp = () => {
     console.log('⏰ انتهى الوقت للسؤال');
+    
+    // فك قفل الخلية
+    if (selectedCell !== null) {
+      setLockedCells(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(selectedCell);
+        return newSet;
+      });
+    }
     
     // إشعار اللاعب الآخر أن الحل توقف
     if (subscriptionRef.current && selectedCell !== null) {
@@ -576,7 +720,11 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
     setMathQuestion(null);
     setShowQuestion(false);
     setRaceMode(false);
-    toast.error('⏰ انتهى الوقت! اختر مربعاً آخر بسرعة');
+    setPendingMove(null);
+    toast.error('⏰ انتهى الوقت! اختر مربعاً آخر بسرعة', {
+      duration: 2000,
+      style: { background: 'var(--destructive)', color: 'var(--destructive-foreground)' }
+    });
   };
 
   // معالجة انتهاء اللعبة
@@ -803,6 +951,9 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
             disabled={showQuestion}
             playerSymbol={playerSymbol}
             opponentSolving={opponentSolving}
+            lockedCells={lockedCells}
+            pendingMove={pendingMove}
+            connectionStatus={connectionStatus}
           />
         </div>
       )}

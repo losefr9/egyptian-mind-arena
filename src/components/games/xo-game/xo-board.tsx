@@ -9,15 +9,21 @@ interface XOBoardProps {
   disabled: boolean;
   playerSymbol: 'X' | 'O';
   opponentSolving?: number | null;
+  lockedCells?: Set<number>;
+  pendingMove?: {cellIndex: number, symbol: string} | null;
+  connectionStatus?: 'connecting' | 'connected' | 'disconnected';
 }
 
-export const XOBoard: React.FC<XOBoardProps> = ({
-  board,
-  onCellClick,
-  currentPlayer,
-  disabled,
+export const XOBoard: React.FC<XOBoardProps> = ({ 
+  board, 
+  onCellClick, 
+  currentPlayer, 
+  disabled, 
   playerSymbol,
-  opponentSolving
+  opponentSolving,
+  lockedCells = new Set(),
+  pendingMove,
+  connectionStatus = 'connected'
 }) => {
   const renderCell = (value: string, index: number) => {
     const isClickable = !disabled && !value;
