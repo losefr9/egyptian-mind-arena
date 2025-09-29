@@ -12,6 +12,7 @@ interface XOBoardProps {
   lockedCells?: Set<number>;
   pendingMove?: {cellIndex: number, symbol: string} | null;
   connectionStatus?: 'connecting' | 'connected' | 'disconnected';
+  savingMove?: boolean;
 }
 
 export const XOBoard: React.FC<XOBoardProps> = ({ 
@@ -23,11 +24,13 @@ export const XOBoard: React.FC<XOBoardProps> = ({
   opponentSolving,
   lockedCells = new Set(),
   pendingMove,
-  connectionStatus = 'connected'
+  connectionStatus = 'connected',
+  savingMove = false
 }) => {
   const renderCell = (value: string, index: number) => {
-    const isClickable = !disabled && !value;
+    const isClickable = !disabled && !value && !savingMove;
     const isOpponentSolving = opponentSolving === index;
+    const isPendingCell = pendingMove?.cellIndex === index;
     
     return (
       <Button
@@ -35,18 +38,19 @@ export const XOBoard: React.FC<XOBoardProps> = ({
         variant="outline"
         className={`
           aspect-square w-full text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold transition-all duration-500 transform 
-          ${isClickable && !isOpponentSolving ? 'hover:bg-gradient-to-br hover:from-primary/20 hover:to-accent/20 hover:border-primary hover:scale-110 hover:shadow-xl cursor-pointer animate-pulse hover:animate-none' : 'cursor-not-allowed opacity-70'}
+          ${isClickable && !isOpponentSolving && !isPendingCell ? 'hover:bg-gradient-to-br hover:from-primary/20 hover:to-accent/20 hover:border-primary hover:scale-110 hover:shadow-xl cursor-pointer animate-pulse hover:animate-none' : 'cursor-not-allowed opacity-70'}
           ${isOpponentSolving ? 'bg-gradient-to-br from-orange-200 to-orange-300 border-orange-400 animate-pulse shadow-lg' : ''}
-          ${value === 'X' ? 'text-red-500 bg-gradient-to-br from-red-50 to-red-100 border-red-300 animate-bounce shadow-lg' : value === 'O' ? 'text-blue-500 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-300 animate-bounce shadow-lg' : !isOpponentSolving ? 'bg-gradient-to-br from-background to-muted/50 hover:from-primary/10 hover:to-accent/10' : ''}
+          ${isPendingCell ? 'bg-gradient-to-br from-yellow-200 to-yellow-300 border-yellow-400 animate-pulse shadow-lg' : ''}
+          ${value === 'X' ? 'text-red-500 bg-gradient-to-br from-red-50 to-red-100 border-red-300 animate-bounce shadow-lg' : value === 'O' ? 'text-blue-500 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-300 animate-bounce shadow-lg' : !isOpponentSolving && !isPendingCell ? 'bg-gradient-to-br from-background to-muted/50 hover:from-primary/10 hover:to-accent/10' : ''}
           ${value !== '' ? 'animate-scale-in shadow-xl' : 'hover:shadow-lg'}
           border-2 min-h-[60px] sm:min-h-[80px] md:min-h-[100px] rounded-lg relative overflow-hidden
-          ${value === '' && isClickable && !isOpponentSolving ? 'group' : ''}
+          ${value === '' && isClickable && !isOpponentSolving && !isPendingCell ? 'group' : ''}
         `}
         onClick={() => isClickable && !isOpponentSolving && onCellClick(index)}
         disabled={!isClickable || isOpponentSolving}
       >
         {/* تأثير التمرير للخلايا الفارغة */}
-        {value === '' && isClickable && !isOpponentSolving && (
+        {value === '' && isClickable && !isOpponentSolving && !isPendingCell && (
           <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-accent/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-lg"></div>
         )}
         
@@ -54,6 +58,13 @@ export const XOBoard: React.FC<XOBoardProps> = ({
         {isOpponentSolving && (
           <div className="absolute inset-0 bg-gradient-to-br from-orange-300/50 to-orange-500/50 animate-pulse rounded-lg flex items-center justify-center">
             <span className="text-orange-700 font-bold text-sm animate-bounce">🏃‍♂️</span>
+          </div>
+        )}
+        
+        {/* مؤشر جاري الحفظ */}
+        {isPendingCell && value === '' && (
+          <div className="absolute inset-0 bg-gradient-to-br from-yellow-300/50 to-yellow-500/50 animate-pulse rounded-lg flex items-center justify-center">
+            <span className="text-yellow-700 font-bold text-sm animate-spin">💾</span>
           </div>
         )}
         
@@ -65,10 +76,13 @@ export const XOBoard: React.FC<XOBoardProps> = ({
           {value === 'O' && (
             <span className="drop-shadow-lg animate-bounce text-blue-600">⭕</span>
           )}
-          {value === '' && isClickable && !isOpponentSolving && (
+          {value === '' && isClickable && !isOpponentSolving && !isPendingCell && (
             <span className="opacity-30 group-hover:opacity-60 transition-opacity duration-300 text-muted-foreground">
               ⚡
             </span>
+          )}
+          {isPendingCell && value === '' && (
+            <span className="text-yellow-600 font-bold animate-pulse">💾</span>
           )}
         </div>
       </Button>
