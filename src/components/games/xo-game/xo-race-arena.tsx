@@ -39,23 +39,20 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
   const [gameEndNotified, setGameEndNotified] = useState(false);
   const [lockedCells, setLockedCells] = useState<Set<number>>(new Set());
   const [pendingMove, setPendingMove] = useState<{cellIndex: number, symbol: string} | null>(null);
-  const [lastBoardUpdate, setLastBoardUpdate] = useState<string>('');
-  const [savingMove, setSavingMove] = useState(false);
+  const [savingMove, setSavingMove] = useState<boolean>(false);
   const subscriptionRef = useRef<any>(null);
   const retryTimeoutRef = useRef<any>(null);
-  const boardSyncRef = useRef<string[]>(Array(9).fill(''));
 
   const playerSymbol = gameSession.player1_id === user?.id ? 'X' : 'O';
   const prizeAmount = gameSession.bet_amount * 2;
   const platformFee = prizeAmount * 0.1;
   const winnerEarnings = prizeAmount - platformFee;
 
-  // التحقق من الفوز
   const checkWinner = (board: string[]) => {
     const winningCombinations = [
-      [0, 1, 2], [3, 4, 5], [6, 7, 8], // صفوف
-      [0, 3, 6], [1, 4, 7], [2, 5, 8], // أعمدة
-      [0, 4, 8], [2, 4, 6] // قطران
+      [0, 1, 2], [3, 4, 5], [6, 7, 8],
+      [0, 3, 6], [1, 4, 7], [2, 5, 8],
+      [0, 4, 8], [2, 4, 6]
     ];
 
     for (const combo of winningCombinations) {
@@ -97,25 +94,21 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
     }
   }, [gameStatus, gameEndNotified, gameSession.player1_id, gameSession.player2_id, player1Username, player2Username, user?.id, winnerEarnings]);
 
-  // قفل مؤقت للخلايا لمنع التضارب
   const lockCell = useCallback((cellIndex: number) => {
     setLockedCells(prev => new Set([...prev, cellIndex]));
-    // فك القفل تلقائياً بعد 20 ثانية
     setTimeout(() => {
       setLockedCells(prev => {
         const newSet = new Set(prev);
         newSet.delete(cellIndex);
         return newSet;
       });
-    }, 20000);
+    }, 30000);
   }, []);
 
-  // تحميل اللوحة الحالية والإعداد الأولي
   const initializeGame = useCallback(async () => {
     try {
       console.log('🎮 تهيئة اللعبة...');
       
-      // تحميل حالة اللوحة الحالية
       const { data, error } = await supabase
         .from('xo_matches')
         .select('board_state')
@@ -153,7 +146,6 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
         await createNewMatch();
       }
 
-      // إعداد الاشتراك في الوقت الفعلي
       setupRealTimeSubscription();
       
     } catch (error) {
@@ -162,7 +154,6 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
     }
   }, [gameSession.id]);
 
-  // إنشاء مباراة جديدة
   const createNewMatch = async () => {
     try {
       await supabase.rpc('create_new_xo_match', {
@@ -174,11 +165,52 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
     }
   };
 
-  // إعداد الاشتراك في الوقت الفعلي مع retry mechanism
+  const fetchUsernames = useCallback(async () => {
+    try {
+      const { data: player1Data } = await supabase.rpc('get_public_username', { 
+        user_id_input: gameSession.player1_id 
+      });
+      const { data: player2Data } = await supabase.rpc('get_public_username', { 
+        user_id_input: gameSession.player2_id 
+      });
+
+      setPlayer1Username(player1Data?.[0]?.username || 'لاعب 1');
+      setPlayer2Username(player2Data?.[0]?.username || 'لاعب 2');
+    } catch (error) {
+      console.error('خطأ في تحميل أسماء المستخدمين:', error);
+      setPlayer1Username('لاعب 1');
+      setPlayer2Username('لاعب 2');
+    }
+  }, [gameSession.player1_id, gameSession.player2_id]);
+
+  const loadNewQuestion = async () => {
+    try {
+      const { data, error } = await supabase.rpc('get_random_math_question');
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        const questionData = data[0];
+        setMathQuestion({
+          id: questionData.id,
+          question: questionData.question,
+          answer: 0
+        });
+        setTimeLeft(15);
+        setShowQuestion(true);
+        setRaceMode(true);
+        setQuestionStartTime(Date.now());
+      }
+    } catch (error) {
+      console.error('خطأ في تحميل السؤال:', error);
+      toast.error('خطأ في تحميل السؤال');
+    }
+  };
+
+  // Setup realtime subscription with new events
   const setupRealTimeSubscription = useCallback(() => {
     console.log('📡 إعداد الاشتراك في التحديثات الفورية للعبة:', gameSession.id);
     
-    // إزالة الاشتراك السابق إن وجد
     if (subscriptionRef.current) {
       supabase.removeChannel(subscriptionRef.current);
     }
@@ -207,46 +239,30 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
           if (newData.board_state) {
             let boardState: string[];
             
-            // التعامل مع board_state سواء كان string أو array
             if (Array.isArray(newData.board_state)) {
               boardState = newData.board_state;
             } else if (typeof newData.board_state === 'string') {
               try {
                 boardState = JSON.parse(newData.board_state);
               } catch {
-                console.warn('فشل في تحليل board_state، استخدام القيمة كما هي');
+                console.warn('فشل في تحليل board_state');
                 boardState = newData.board_state;
               }
             } else {
               boardState = newData.board_state;
             }
             
-            console.log('✅ تحديث اللوحة من التحديث الفوري:', boardState);
-            
-            // التحديث من قاعدة البيانات (المصدر الوحيد للحقيقة)
-            const boardKey = JSON.stringify(boardState);
-            
-            // دائماً نحدّث من قاعدة البيانات
-            setLastBoardUpdate(boardKey);
-            boardSyncRef.current = boardState;
-            
-            console.log('🔄 تحديث الحالة المحلية من قاعدة البيانات:', boardState);
-            
-            // تحديث اللوحة مباشرة من التحديث الفوري
+            console.log('✅ تحديث اللوحة من قاعدة البيانات:', boardState);
             setBoard(boardState);
-            
-            // إلغاء حالة الحفظ إذا كانت موجودة
             setSavingMove(false);
             setPendingMove(null);
             
-            // إخفاء السؤال إذا كان المربع المختار محجوز الآن
             if (selectedCell !== null && boardState[selectedCell] !== '') {
               console.log('🚫 تم حجز المربع المختار');
               setShowQuestion(false);
               setSelectedCell(null);
               setOpponentSolving(null);
               
-              // فك قفل الخلية
               setLockedCells(prev => {
                 const newSet = new Set(prev);
                 newSet.delete(selectedCell);
@@ -254,86 +270,39 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
               });
               toast.warning('⚡ اللاعب الآخر أسرع منك! اختر مربعاً آخر');
             }
-            
-            // إشعار عن تحرك اللاعب الآخر
-            const changedIndex = boardState.findIndex((cell, index) => cell !== '' && (board[index] === '' || board[index] !== cell));
-            if (changedIndex !== -1) {
-              const symbol = boardState[changedIndex];
-              const isOwnMove = (symbol === 'X' && user?.id === gameSession.player1_id) || 
-                              (symbol === 'O' && user?.id === gameSession.player2_id);
-              
-              if (!isOwnMove) {
-                const otherPlayerName = symbol === 'X' ? player1Username : player2Username;
-                toast.success(`🎯 ${otherPlayerName} حل المربع ${changedIndex + 1}!`, {
-                  duration: 2000,
-                  style: { background: 'var(--accent)', color: 'var(--accent-foreground)' }
-                });
-                setOpponentSolving(null);
-              } else {
-                // تأكيد الحركة الخاصة
-                toast.success('✅ تم تأكيد حركتك بنجاح!', {
-                  duration: 1500,
-                  style: { background: 'var(--primary)', color: 'var(--primary-foreground)' }
-                });
-                setSavingMove(false);
-                setPendingMove(null);
-              }
-              
-              // فك قفل الخلية
-              setLockedCells(prev => {
-                const newSet = new Set(prev);
-                newSet.delete(changedIndex);
-                return newSet;
-              });
-            }
           }
         }
       )
-      .on('broadcast', { event: 'opponent_solving' }, (payload) => {
-        const { cellIndex, playerId } = payload.payload;
-        if (playerId !== user?.id) {
-          setOpponentSolving(cellIndex);
-          console.log('👁️ اللاعب الآخر يحل مربع:', cellIndex);
+      .on('broadcast', { event: 'cell_reserved' }, ({ payload }) => {
+        if (payload.playerId !== user?.id) {
+          console.log('🔒 الخصم حجز المربع:', payload.cellIndex);
+          setOpponentSolving(payload.cellIndex);
         }
       })
-      .on('broadcast', { event: 'stop_solving' }, (payload) => {
-        const { playerId } = payload.payload;
-        if (playerId !== user?.id) {
+      .on('broadcast', { event: 'reservation_cancelled' }, ({ payload }) => {
+        if (payload.playerId !== user?.id) {
+          console.log('🔄 الخصم ألغى حجز المربع:', payload.cellIndex);
           setOpponentSolving(null);
-          console.log('✋ اللاعب الآخر توقف عن الحل');
         }
       })
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'xo_matches',
-          filter: `game_session_id=eq.${gameSession.id}`
-        },
-        (payload) => {
-          console.log('📝 مباراة جديدة تم إنشاؤها:', payload);
-          const newData = payload.new as any;
-          if (newData.board_state && Array.isArray(newData.board_state)) {
-            console.log('🎯 تعيين حالة اللوحة الأولية:', newData.board_state);
-            setBoard(newData.board_state as string[]);
-          }
+      .on('broadcast', { event: 'move_committed' }, ({ payload }) => {
+        if (payload.playerId !== user?.id) {
+          console.log('✅ الخصم أكد الحركة:', payload);
+          setOpponentSolving(null);
         }
-      )
+      })
       .subscribe((status) => {
         console.log('📡 حالة الاشتراك:', status);
         if (status === 'SUBSCRIBED') {
-          console.log('✅ الاشتراك نشط للعبة:', gameSession.id);
+          console.log('✅ الاشتراك نشط');
           setConnectionStatus('connected');
-          // إلغاء أي محاولة إعادة اتصال معلقة
           if (retryTimeoutRef.current) {
             clearTimeout(retryTimeoutRef.current);
             retryTimeoutRef.current = null;
           }
         } else if (status === 'CHANNEL_ERROR') {
-          console.error('❌ خطأ في الاشتراك للعبة:', gameSession.id);
+          console.error('❌ خطأ في الاشتراك');
           setConnectionStatus('disconnected');
-          // محاولة إعادة الاتصال بعد 3 ثوانٍ
           retryTimeoutRef.current = setTimeout(() => {
             console.log('🔄 محاولة إعادة الاتصال...');
             setupRealTimeSubscription();
@@ -344,428 +313,269 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
       });
   }, [gameSession.id, user?.id, selectedCell, player1Username, player2Username]);
 
-  // تحميل أسماء المستخدمين
-  const fetchUsernames = useCallback(async () => {
-    try {
-      const { data: player1Data } = await supabase.rpc('get_public_username', { 
-        user_id_input: gameSession.player1_id 
-      });
-      const { data: player2Data } = await supabase.rpc('get_public_username', { 
-        user_id_input: gameSession.player2_id 
-      });
-
-      setPlayer1Username(player1Data?.[0]?.username || 'لاعب 1');
-      setPlayer2Username(player2Data?.[0]?.username || 'لاعب 2');
-    } catch (error) {
-      console.error('خطأ في تحميل أسماء المستخدمين:', error);
-      setPlayer1Username('لاعب 1');
-      setPlayer2Username('لاعب 2');
+  // معالجة النقر على الخلية مع حجز ذري
+  const handleCellClick = async (index: number) => {
+    console.log('🎯 محاولة اختيار المربع:', index);
+    
+    if (
+      board[index] ||
+      gameStatus !== 'playing' ||
+      lockedCells.has(index) ||
+      pendingMove !== null ||
+      opponentSolving === index ||
+      showQuestion
+    ) {
+      if (board[index]) {
+        toast.warning('هذا المربع محلول بالفعل!');
+      } else if (opponentSolving === index) {
+        toast.warning('🏃‍♂️ اللاعب الآخر يحل هذا المربع حالياً!');
+      }
+      return;
     }
-  }, [gameSession.player1_id, gameSession.player2_id]);
-
-  // تحميل سؤال جديد
-  const loadNewQuestion = async () => {
+    
     try {
-      const { data, error } = await supabase.rpc('get_random_math_question');
+      console.log('🔒 محاولة حجز المربع في قاعدة البيانات...');
+      const { data, error } = await supabase.rpc('reserve_cell', {
+        p_game_session_id: gameSession.id,
+        p_player_id: user?.id,
+        p_cell_index: index,
+      });
 
       if (error) throw error;
+      
+      const result = data as { success: boolean; error?: string; message: string };
+      
+      if (!result.success) {
+        console.log('❌ فشل الحجز:', result.message);
+        toast.error(result.message);
+        return;
+      }
 
-      if (data && data.length > 0) {
-        const questionData = data[0];
-        setMathQuestion({
-          id: questionData.id,
-          question: questionData.question,
-          answer: 0
+      console.log('✅ تم حجز المربع بنجاح');
+      
+      setSelectedCell(index);
+      lockCell(index);
+
+      if (subscriptionRef.current) {
+        subscriptionRef.current.send({
+          type: 'broadcast',
+          event: 'cell_reserved',
+          payload: { cellIndex: index, playerId: user?.id }
         });
-        setTimeLeft(15);
-        setShowQuestion(true);
-        setRaceMode(true);
-        setQuestionStartTime(Date.now());
       }
+
+      await loadNewQuestion();
     } catch (error) {
-      console.error('خطأ في تحميل السؤال:', error);
-      toast.error('خطأ في تحميل السؤال');
+      console.error('❌ خطأ في حجز المربع:', error);
+      toast.error('فشل في حجز المربع، حاول مرة أخرى');
     }
   };
 
-  // معالجة النقر على الخلية
-  const handleCellClick = (index: number) => {
-    console.log('🎯 محاولة اختيار المربع:', index, 'حالة المربع:', board[index]);
-    
-    // التحقق الشامل للخلية
-    const currentBoard = boardSyncRef.current;
-    const isCellEmpty = currentBoard[index] === '' && board[index] === '';
-    const isCellLocked = lockedCells.has(index);
-    const isGameActive = gameStatus === 'playing';
-    const isAlreadySolving = showQuestion && selectedCell !== null;
-    
-    console.log('🔍 فحص الخلية:', {
-      index,
-      isCellEmpty,
-      isCellLocked,
-      isGameActive,
-      isAlreadySolving,
-      currentBoard: currentBoard[index],
-      localBoard: board[index]
-    });
-    
-    // التحقق من صحة الحركة
-    if (!isCellEmpty || !isGameActive || isCellLocked || isAlreadySolving) {
-      console.log('❌ المربع محجوز أو اللعبة متوقفة');
-      if (board[index] !== '') {
-        toast.warning('هذا المربع محلول بالفعل! اختر مربع آخر');
-      }
-      return;
-    }
-
-    // التحقق من أن اللاعب الآخر لا يحل نفس المربع
-    if (opponentSolving === index) {
-      toast.warning('🏃‍♂️ اللاعب الآخر يحل هذا المربع حالياً! اختر مربعاً آخر');
-      return;
-    }
-    
-    console.log('✅ المربع متاح، بدء السؤال...');
-    setSelectedCell(index);
-    
-    // إشعار اللاعب الآخر أن هذا المربع قيد الحل
-    if (subscriptionRef.current) {
-      subscriptionRef.current.send({
-        type: 'broadcast',
-        event: 'opponent_solving',
-        payload: { cellIndex: index, playerId: user?.id }
-      });
-    }
-    
-    loadNewQuestion();
-  };
-
-  // معالجة الإجابة على السؤال
+  // معالجة الإجابة على السؤال مع commit_move
   const handleMathAnswer = async (answer: number, isCorrect: boolean) => {
     if (selectedCell === null || !mathQuestion || !raceMode) return;
 
-    const responseTime = Date.now() - questionStartTime;
-    
-    try {
-      // التحقق من صحة الإجابة
-      const { data: validationData, error: validationError } = await supabase.rpc('validate_generated_math_answer', {
-        question_text: mathQuestion.question,
-        user_answer: answer
-      });
+    const cellIndex = selectedCell;
+    const currentPlayer = gameSession.player1_id === user?.id ? 'X' : 'O';
 
-      if (validationError) throw validationError;
-
-      const actualIsCorrect = validationData?.[0]?.is_correct || false;
-
-      if (actualIsCorrect) {
-        console.log('✅ إجابة صحيحة! جاري حفظ الحركة...');
-        
-        // تعيين حالة الحفظ
-        setSavingMove(true);
-        
-        // تحضير اللوحة الجديدة من اللوحة المتزامنة
-        const newBoard = [...boardSyncRef.current];
-        newBoard[selectedCell] = playerSymbol;
-        
-        console.log('📊 تحديث اللوحة:', {
-          من: boardSyncRef.current,
-          إلى: newBoard,
-          الخلية: selectedCell,
-          الرمز: playerSymbol,
-          معرف_الجلسة: gameSession.id
+    if (!isCorrect) {
+      toast.error('💫 إجابة خاطئة! حاول مرة أخرى');
+      
+      try {
+        await supabase.rpc('cancel_reservation', {
+          p_game_session_id: gameSession.id,
+          p_player_id: user?.id,
+          p_cell_index: cellIndex,
         });
-        
-        try {
-          // تحديث قاعدة البيانات أولاً مع فحص الحالة
-          const { data: currentMatch, error: fetchError } = await supabase
-            .from('xo_matches')
-            .select('board_state')
-            .eq('game_session_id', gameSession.id)
-            .maybeSingle();
-
-          if (fetchError) {
-            console.error('❌ خطأ في قراءة حالة اللوحة:', fetchError);
-            toast.error('خطأ في قراءة حالة اللوحة');
-            return;
-          }
-
-          // إنشاء مباراة جديدة إذا لم تكن موجودة
-          if (!currentMatch) {
-            console.log('📝 إنشاء سجل مباراة جديد...');
-            
-            // محاولة إنشاء المباراة باستخدام RPC
-            const { error: rpcError } = await supabase.rpc('create_new_xo_match', { 
-              session_id: gameSession.id 
-            });
-            
-            if (rpcError) {
-              console.error('❌ خطأ في RPC إنشاء المباراة:', rpcError);
-              // محاولة إنشاء مباشر إذا فشل RPC
-              const { error: insertError } = await supabase
-                .from('xo_matches')
-                .insert({
-                  game_session_id: gameSession.id,
-                  board_state: ['', '', '', '', '', '', '', '', ''],
-                  match_status: 'playing',
-                  current_turn_player_id: user?.id
-                });
-                
-              if (insertError) {
-                console.error('❌ خطأ في إنشاء المباراة مباشرة:', insertError);
-                toast.error('خطأ في إنشاء المباراة');
-                return;
-              }
-            }
-            
-            // إعادة قراءة البيانات مع retry
-            let retries = 3;
-            let newMatch = null;
-            
-            while (retries > 0 && !newMatch) {
-              const { data: matchData, error: newFetchError } = await supabase
-                .from('xo_matches')
-                .select('board_state')
-                .eq('game_session_id', gameSession.id)
-                .maybeSingle();
-                
-              if (newFetchError) {
-                console.error('❌ خطأ في قراءة المباراة الجديدة:', newFetchError);
-                retries--;
-                if (retries > 0) {
-                  await new Promise(resolve => setTimeout(resolve, 500)); // انتظار نصف ثانية
-                }
-                continue;
-              }
-              
-              newMatch = matchData;
-              break;
-            }
-              
-            if (!newMatch) {
-              console.error('❌ فشل في إنشاء أو قراءة المباراة بعد عدة محاولات');
-              toast.error('فشل في إنشاء المباراة، يرجى المحاولة مرة أخرى');
-              return;
-            }
-            
-            const currentBoard = Array.isArray(newMatch.board_state) 
-              ? newMatch.board_state 
-              : JSON.parse(newMatch.board_state as string);
-              
-            if (currentBoard[selectedCell] !== '') {
-              toast.warning('هذا المربع محلول بالفعل! اختر مربع آخر');
-              return;
-            }
-          } else {
-            // فحص ما إذا كان المربع لا يزال فارغاً
-            const currentBoard = Array.isArray(currentMatch.board_state) 
-              ? currentMatch.board_state 
-              : JSON.parse(currentMatch.board_state as string);
-
-            if (currentBoard[selectedCell] !== '') {
-              console.log('❌ المربع محجوز بالفعل من قبل لاعب آخر:', currentBoard[selectedCell]);
-              toast.warning('تم حجز هذا المربع من قبل اللاعب الآخر!');
-              setShowQuestion(false);
-              setSelectedCell(null);
-              return;
-            }
-          }
-
-          // تعيين الحركة المعلقة
-          setPendingMove({ cellIndex: selectedCell, symbol: playerSymbol });
-
-          // تحديث قاعدة البيانات فقط - Real-time سيتكفل بتحديث الواجهة
-          let updateSuccess = false;
-          let retryCount = 0;
-          const maxRetries = 3;
-          
-          while (!updateSuccess && retryCount < maxRetries) {
-            try {
-              const { error: updateError } = await supabase
-                .from('xo_matches')
-                .update({ 
-                  board_state: newBoard,
-                  updated_at: new Date().toISOString()
-                })
-                .eq('game_session_id', gameSession.id);
-
-              if (!updateError) {
-                updateSuccess = true;
-                console.log('✅ تم حفظ الحركة في قاعدة البيانات - انتظار التحديث الفوري');
-                
-                // تحديث المرجع المحلي فقط
-                boardSyncRef.current = newBoard;
-                
-                // لا نحدث setBoard هنا - سنعتمد على real-time update
-                
-              } else {
-                console.error(`❌ خطأ في تحديث اللوحة (محاولة ${retryCount + 1}):`, updateError);
-                retryCount++;
-                if (retryCount < maxRetries) {
-                  await new Promise(resolve => setTimeout(resolve, 200 * retryCount));
-                }
-              }
-            } catch (error) {
-              console.error(`❌ خطأ في الاتصال (محاولة ${retryCount + 1}):`, error);
-              retryCount++;
-              if (retryCount < maxRetries) {
-                await new Promise(resolve => setTimeout(resolve, 500 * retryCount));
-              }
-            }
-          }
-          
-          if (!updateSuccess) {
-            toast.error('❌ فشل في حفظ الحركة، يرجى المحاولة مرة أخرى');
-            setPendingMove(null);
-            setSavingMove(false);
-            // فك قفل الخلية
-            setLockedCells(prev => {
-              const newSet = new Set(prev);
-              newSet.delete(selectedCell);
-              return newSet;
-            });
-            return;
-          }
-          
-          // تسجيل النشاط
-          try {
-            await logActivity('race_move_made', {
-              cell: selectedCell,
-              symbol: playerSymbol,
-              question: mathQuestion?.question || '',
-              answer: answer,
-              response_time: responseTime,
-              board: newBoard
-            });
-          } catch (logError) {
-            console.error('خطأ في تسجيل النشاط:', logError);
-          }
-
-          toast.success(`🎯 إجابة صحيحة! جاري حفظ الحركة...`, {
-            duration: 1500,
-            style: { background: 'var(--primary)', color: 'var(--primary-foreground)' }
-          });
-          
-        } catch (error) {
-          console.error('❌ خطأ في تحديث قاعدة البيانات:', error);
-          toast.error('خطأ في تحديث اللوحة');
-        }
-      } else {
-        console.log('❌ إجابة خاطئة');
-        toast.error('💫 إجابة خاطئة! حاول مرة أخرى', {
-          duration: 1500,
-          style: { background: 'var(--destructive)', color: 'var(--destructive-foreground)' }
-        });
-        
-        // فك قفل الخلية عند الإجابة الخاطئة
+      } catch (error) {
+        console.error('خطأ في إلغاء الحجز:', error);
+      }
+      
+      setSelectedCell(null);
+      setShowQuestion(false);
+      setTimeLeft(15);
+      setRaceMode(false);
+      
+      setTimeout(() => {
         setLockedCells(prev => {
           const newSet = new Set(prev);
-          if (selectedCell !== null) newSet.delete(selectedCell);
+          newSet.delete(cellIndex);
           return newSet;
         });
+      }, 500);
+
+      if (subscriptionRef.current) {
+        subscriptionRef.current.send({
+          type: 'broadcast',
+          event: 'reservation_cancelled',
+          payload: { cellIndex, playerId: user?.id }
+        });
       }
-    } catch (error) {
-      console.error('خطأ في التحقق من الإجابة:', error);
-      toast.error('خطأ في التحقق من الإجابة');
+
+      return;
     }
 
-    // إنهاء السباق وتنظيف الحالة
-    setSelectedCell(null);
-    setMathQuestion(null);
-    setShowQuestion(false);
-    setRaceMode(false);
-    setPendingMove(null);
-    
-    // إشعار الخصم أن الحل انتهى
-    if (subscriptionRef.current) {
-      subscriptionRef.current.send({
-        type: 'broadcast',
-        event: 'stop_solving',
-        payload: { playerId: user?.id }
+    // الإجابة صحيحة، تأكيد الحركة ذرياً
+    setPendingMove({cellIndex, symbol: currentPlayer});
+    setSavingMove(true);
+
+    try {
+      console.log('📝 تأكيد الحركة في قاعدة البيانات');
+
+      const { data, error } = await supabase.rpc('commit_move', {
+        p_game_session_id: gameSession.id,
+        p_player_id: user?.id,
+        p_cell_index: cellIndex,
+        p_symbol: currentPlayer,
       });
+
+      if (error) throw error;
+
+      const result = data as { success: boolean; error?: string; message: string; board_state?: string[] };
+
+      if (!result.success) {
+        console.error('❌ فشل في تأكيد الحركة:', result);
+        toast.error(result.message);
+        
+        setPendingMove(null);
+        setSavingMove(false);
+        setSelectedCell(null);
+        setShowQuestion(false);
+        setTimeLeft(15);
+        setRaceMode(false);
+        
+        setTimeout(() => {
+          setLockedCells(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(cellIndex);
+            return newSet;
+          });
+        }, 500);
+        
+        return;
+      }
+
+      console.log('✅ تم تأكيد الحركة بنجاح');
+      toast.success('🎯 إجابة صحيحة!');
+      
+      if (subscriptionRef.current) {
+        subscriptionRef.current.send({
+          type: 'broadcast',
+          event: 'move_committed',
+          payload: {
+            cellIndex,
+            playerId: user?.id,
+            symbol: currentPlayer,
+            boardState: result.board_state,
+          },
+        });
+      }
+
+      await logActivity('correct_answer', {
+        cell_index: cellIndex,
+        answer_given: answer,
+      });
+
+      setSelectedCell(null);
+      setShowQuestion(false);
+      setTimeLeft(15);
+      setRaceMode(false);
+      setPendingMove(null);
+
+    } catch (error) {
+      console.error('❌ خطأ في تأكيد الحركة:', error);
+      toast.error('فشل في حفظ الحركة');
+      
+      setPendingMove(null);
+      setSavingMove(false);
+      setSelectedCell(null);
+      setShowQuestion(false);
+      setTimeLeft(15);
+      setRaceMode(false);
+      
+      setTimeout(() => {
+        setLockedCells(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(cellIndex);
+          return newSet;
+        });
+      }, 500);
     }
   };
 
   // معالجة انتهاء الوقت
-  const handleTimeUp = () => {
-    console.log('⏰ انتهى الوقت للسؤال');
-    
-    // فك قفل الخلية
-    if (selectedCell !== null) {
+  const handleTimeUp = async () => {
+    if (selectedCell === null) return;
+
+    const cellIndex = selectedCell;
+
+    toast.error('⏰ انتهى الوقت!');
+
+    try {
+      await supabase.rpc('cancel_reservation', {
+        p_game_session_id: gameSession.id,
+        p_player_id: user?.id,
+        p_cell_index: cellIndex,
+      });
+    } catch (error) {
+      console.error('خطأ في إلغاء الحجز:', error);
+    }
+
+    setSelectedCell(null);
+    setShowQuestion(false);
+    setTimeLeft(15);
+    setRaceMode(false);
+
+    setTimeout(() => {
       setLockedCells(prev => {
         const newSet = new Set(prev);
-        newSet.delete(selectedCell);
+        newSet.delete(cellIndex);
         return newSet;
       });
-    }
-    
-    // إشعار اللاعب الآخر أن الحل توقف
-    if (subscriptionRef.current && selectedCell !== null) {
+    }, 500);
+
+    if (subscriptionRef.current) {
       subscriptionRef.current.send({
         type: 'broadcast',
-        event: 'stop_solving',
-        payload: { playerId: user?.id }
+        event: 'reservation_cancelled',
+        payload: { cellIndex, playerId: user?.id }
       });
     }
-    
-    setSelectedCell(null);
-    setMathQuestion(null);
-    setShowQuestion(false);
-    setRaceMode(false);
-    setPendingMove(null);
-    toast.error('⏰ انتهى الوقت! اختر مربعاً آخر بسرعة', {
-      duration: 2000,
-      style: { background: 'var(--destructive)', color: 'var(--destructive-foreground)' }
-    });
   };
 
-  // معالجة انتهاء اللعبة
   const handleGameEnd = async (result: 'win' | 'draw', winnerId?: string) => {
     try {
       if (result === 'draw') {
         await supabase.rpc('handle_draw_match', { session_id: gameSession.id });
-        toast.info('🤝 تعادل! تم إرجاع مبلغ الرهان');
       } else if (winnerId) {
         await supabase.rpc('calculate_match_earnings', { 
-          session_id: gameSession.id, 
+          session_id: gameSession.id,
           winner_user_id: winnerId 
         });
-        
-        const isWinner = winnerId === user?.id;
-        if (isWinner) {
-          toast.success(`🎉 تهانينا! ربحت ${winnerEarnings.toFixed(2)} جنيه`);
-        } else {
-          toast.error('😔 للأسف خسرت المباراة');
-        }
       }
     } catch (error) {
       console.error('خطأ في معالجة نهاية اللعبة:', error);
-      toast.error('خطأ في معالجة نتيجة المباراة');
     }
   };
 
-  // تسجيل النشاط
   const logActivity = async (activityType: string, details: any) => {
     try {
-      await supabase
-        .from('player_match_activities')
-        .insert({
-          user_id: user?.id,
-          game_session_id: gameSession.id,
-          activity_type: activityType,
-          activity_details: details
-        });
+      await supabase.from('player_match_activities').insert({
+        user_id: user?.id,
+        game_session_id: gameSession.id,
+        activity_type: activityType,
+        activity_details: details
+      });
     } catch (error) {
       console.error('خطأ في تسجيل النشاط:', error);
     }
   };
 
-  // التهيئة الأولية
   useEffect(() => {
     initializeGame();
     fetchUsernames();
 
-    // تنظيف الاشتراك عند إلغاء التحميل
     return () => {
-      console.log('🧹 تنظيف اشتراكات الوقت الفعلي');
       if (subscriptionRef.current) {
         supabase.removeChannel(subscriptionRef.current);
       }
@@ -773,204 +583,144 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
         clearTimeout(retryTimeoutRef.current);
       }
     };
-  }, [initializeGame, fetchUsernames]);
+  }, []);
 
-  // فحص الفائز عند تغيير اللوحة
   useEffect(() => {
     if (board.some(cell => cell !== '')) {
       checkWinnerFromBoard(board);
     }
   }, [board, checkWinnerFromBoard]);
 
-  // مؤقت العد التنازلي
   useEffect(() => {
-    if (showQuestion && timeLeft > 0) {
-      const timer = setInterval(() => {
+    if (showQuestion && timeLeft > 0 && raceMode) {
+      const timer = setTimeout(() => {
         setTimeLeft(prev => prev - 1);
       }, 1000);
-      return () => clearInterval(timer);
-    } else if (showQuestion && timeLeft === 0) {
+      return () => clearTimeout(timer);
+    } else if (timeLeft === 0 && showQuestion && raceMode) {
       handleTimeUp();
     }
-  }, [showQuestion, timeLeft]);
+  }, [timeLeft, showQuestion, raceMode]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-accent/10 p-2 sm:p-4 space-y-4 sm:space-y-6">
-      {/* معلومات اللعبة */}
-      <Card className="bg-gradient-to-r from-primary/20 via-primary/10 to-accent/20 border-primary/30 shadow-2xl relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-accent/5 animate-pulse"></div>
-        <CardHeader className="pb-2 sm:pb-6 relative z-10">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
-            <CardTitle className="flex items-center gap-2 text-lg sm:text-xl text-primary">
-              <Zap className="h-5 w-5 sm:h-6 sm:w-6 text-primary animate-pulse" />
-              <span className="font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                ⚡ سباق XO الذكي ⚡
-              </span>
-            </CardTitle>
-            <Button variant="outline" onClick={onExit} size="sm" className="hover:scale-105 transition-all duration-300">
-              <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4 ml-1" />
-              خروج
-            </Button>
-          </div>
-        </CardHeader>
-        
-        <CardContent className="pt-0 relative z-10">
-          <div className="flex flex-col space-y-3 sm:grid sm:grid-cols-1 md:grid-cols-3 sm:gap-4 sm:space-y-0">
-            <div className="flex flex-wrap items-center gap-2 justify-center sm:justify-start bg-green-50 dark:bg-green-950 p-3 rounded-lg border border-green-200 dark:border-green-800">
-              <DollarSign className="h-4 w-4 text-green-500 animate-bounce" />
-              <span className="text-xs sm:text-sm font-medium">الجائزة:</span>
-              <Badge variant="secondary" className="text-xs sm:text-sm bg-green-100 text-green-800 animate-pulse">{prizeAmount.toFixed(2)} جنيه 💰</Badge>
-            </div>
-            
-            <div className="flex flex-wrap items-center gap-2 justify-center sm:justify-start bg-yellow-50 dark:bg-yellow-950 p-3 rounded-lg border border-yellow-200 dark:border-yellow-800">
-              <Trophy className="h-4 w-4 text-primary animate-pulse" />
-              <span className="text-xs sm:text-sm font-medium">صافي الربح:</span>
-              <Badge variant="secondary" className="text-xs sm:text-sm bg-yellow-100 text-yellow-800 animate-pulse">{winnerEarnings.toFixed(2)} جنيه 🏆</Badge>
-            </div>
-            
-            <div className="flex flex-wrap items-center gap-2 justify-center sm:justify-start bg-blue-50 dark:bg-blue-950 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
-              <Users className="h-4 w-4 text-blue-500 animate-pulse" />
-              <span className="text-xs sm:text-sm font-medium">المتسابقون:</span>
-              <div className="flex flex-wrap gap-2 items-center">
-                <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-red-100 border border-red-300">
-                  <span className="text-xs font-bold text-red-600">❌</span>
-                  <span className="text-xs text-red-700">{player1Username}</span>
-                </div>
-                <span className="text-xs text-muted-foreground">VS</span>
-                <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-blue-100 border border-blue-300">
-                  <span className="text-xs font-bold text-blue-600">⭕</span>
-                  <span className="text-xs text-blue-700">{player2Username}</span>
-                </div>
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20 p-4">
+      <div className="max-w-6xl mx-auto">
+        <Card className="mb-4 shadow-lg border-primary/20">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onExit}
+                className="hover:bg-accent"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                خروج
+              </Button>
+              
+          <div className="flex items-center gap-2">
+                <Badge variant={connectionStatus === 'connected' ? 'default' : 'destructive'}>
+                  {connectionStatus === 'connected' ? '🟢 متصل' : '🔴 غير متصل'}
+                </Badge>
+                {savingMove && (
+                  <Badge variant="secondary" className="animate-pulse">
+                    💾 جاري الحفظ...
+                  </Badge>
+                )}
               </div>
-            </div>
-          </div>
-          
-          {/* مؤشر حالة الاتصال */}
-          <div className="flex items-center justify-center gap-2 mt-4 pt-3 border-t border-primary/20">
-            <div className={`w-2 h-2 rounded-full ${
-              connectionStatus === 'connected' ? 'bg-green-500 animate-pulse' : 
-              connectionStatus === 'connecting' ? 'bg-yellow-500 animate-spin' : 'bg-red-500'
-            }`}></div>
-            <span className="text-xs text-muted-foreground">
-              {connectionStatus === 'connected' ? 'متصل' : 
-               connectionStatus === 'connecting' ? 'جاري الاتصال...' : 'منقطع'}
-            </span>
-            {opponentSolving !== null && (
-              <div className="ml-4 flex items-center gap-1 text-xs text-orange-600 animate-pulse">
-                <span>🏃‍♂️</span>
-                <span>اللاعب الآخر يحل المربع {opponentSolving + 1}</span>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* السؤال الرياضي */}
-      {showQuestion && mathQuestion && (
-        <Card className="bg-gradient-to-r from-orange-50 to-red-50 border-orange-200 shadow-xl animate-in slide-in-from-top-5 duration-500">
-          <CardHeader className="text-center pb-2">
-            <CardTitle className="flex items-center justify-center gap-2 text-orange-600">
-              <Timer className="h-5 w-5 animate-spin" />
-              سباق السرعة!
-              <Timer className="h-5 w-5 animate-spin" />
-            </CardTitle>
-            <div className="flex items-center justify-center gap-2 mt-2">
-              <Clock className="h-4 w-4 text-red-500" />
-              <span className="font-bold text-red-500">{timeLeft} ثانية</span>
             </div>
           </CardHeader>
-          <CardContent>
+
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/10">
+                <Trophy className="w-5 h-5 text-primary" />
+                <div>
+                  <p className="text-xs text-muted-foreground">الجائزة</p>
+                  <p className="text-lg font-bold">{winnerEarnings.toFixed(2)} ر.س</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-secondary/10">
+                <Users className="w-5 h-5 text-secondary" />
+                <div>
+                  <p className="text-xs text-muted-foreground">اللاعبون</p>
+                  <p className="text-sm font-medium">{player1Username} vs {player2Username}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-accent/10">
+                <Zap className="w-5 h-5 text-accent" />
+                <div>
+                  <p className="text-xs text-muted-foreground">رمزك</p>
+                  <p className="text-2xl font-bold">{playerSymbol}</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {showQuestion && mathQuestion && (
+          <div className="mb-4">
             <MathQuestion
-              question={mathQuestion.question}
               questionId={mathQuestion.id}
+              question={mathQuestion.question}
               timeLeft={timeLeft}
               onAnswer={handleMathAnswer}
               onTimeUp={handleTimeUp}
             />
-          </CardContent>
-        </Card>
-      )}
+          </div>
+        )}
 
-      {/* حالة اللعبة */}
-      {gameStatus !== 'playing' && (
-        <Card className={`text-center shadow-2xl border-4 ${
-          gameStatus === 'won' ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-300' : 'bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-300'
-        } animate-in zoom-in-95 duration-1000`}>
-          <CardContent className="py-8">
-            <div className="space-y-4">
-              {gameStatus === 'won' && winner && (
-                <div className="space-y-3">
-                  <div className="text-6xl animate-bounce">🎉</div>
-                  <h2 className="text-2xl sm:text-3xl font-bold text-green-600">
-                    {winner === user?.id ? 'تهانينا! 🏆' : 'انتهت المباراة 😔'}
+        {(gameStatus === 'won' || gameStatus === 'draw') && (
+          <Card className="mb-4 border-2 border-primary shadow-lg">
+            <CardContent className="p-6 text-center">
+              {gameStatus === 'won' && (
+                <>
+                  <Trophy className="w-16 h-16 mx-auto mb-4 text-primary animate-bounce" />
+                  <h2 className="text-2xl font-bold mb-2">
+                    {winner === user?.id ? 'تهانينا! لقد فزت! 🎉' : 'انتهت اللعبة'}
                   </h2>
-                  <p className="text-lg text-green-700">
-                    الفائز: {winner === gameSession.player1_id ? player1Username : player2Username}
+                  <p className="text-muted-foreground">
+                    {winner === user?.id 
+                      ? `حصلت على ${winnerEarnings.toFixed(2)} ر.س`
+                      : 'حظ أوفر في المرة القادمة'}
                   </p>
-                  {winner === user?.id && (
-                    <p className="text-xl font-bold text-green-800">
-                      ربحت {winnerEarnings.toFixed(2)} جنيه! 💰
-                    </p>
-                  )}
-                </div>
+                </>
               )}
-              
               {gameStatus === 'draw' && (
-                <div className="space-y-3">
-                  <div className="text-6xl animate-pulse">🤝</div>
-                  <h2 className="text-2xl sm:text-3xl font-bold text-yellow-600">تعادل!</h2>
-                  <p className="text-lg text-yellow-700">تم إرجاع مبلغ الرهان لكلا اللاعبين</p>
-                </div>
+                <>
+                  <h2 className="text-2xl font-bold mb-2">تعادل! 🤝</h2>
+                  <p className="text-muted-foreground">تم إرجاع الرصيد لكلا اللاعبين</p>
+                </>
               )}
-              
-              <Button onClick={onExit} size="lg" className="mt-6 hover:scale-105 transition-all duration-300">
+              <Button onClick={onExit} className="mt-4">
                 العودة للألعاب
               </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            </CardContent>
+          </Card>
+        )}
 
-      {/* لوحة اللعب */}
-      {gameStatus === 'playing' && (
-        <div className="flex justify-center">
+        <div className="flex flex-col items-center">
           <XOBoard
             board={board}
             onCellClick={handleCellClick}
-            currentPlayer="X"
-            disabled={showQuestion}
+            currentPlayer={playerSymbol}
+            disabled={gameStatus !== 'playing' || showQuestion}
             playerSymbol={playerSymbol}
-            opponentSolving={opponentSolving}
-            lockedCells={lockedCells}
             pendingMove={pendingMove}
-            connectionStatus={connectionStatus}
             savingMove={savingMove}
+            opponentSolving={opponentSolving}
+            connectionStatus={connectionStatus}
           />
-        </div>
-      )}
 
-      {/* رسالة انتظار */}
-      {gameStatus === 'playing' && !showQuestion && selectedCell === null && (
-        <Card className="text-center bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200 shadow-xl">
-          <CardContent className="py-6">
-            <div className="space-y-3">
-              <div className="text-4xl animate-pulse">🎯</div>
-              <h3 className="text-lg font-bold text-blue-600">اختر مربعاً لبدء السباق!</h3>
-              <p className="text-sm text-blue-700">
-                اضغط على أي مربع فارغ لتظهر لك مسألة رياضية
-              </p>
-              <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground mt-4">
-                <span>رمزك:</span>
-                <div className="px-2 py-1 rounded bg-primary/10 border border-primary/20">
-                  <span className="font-bold text-primary">
-                    {playerSymbol === 'X' ? '❌' : '⭕'} {playerSymbol}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+          {!showQuestion && gameStatus === 'playing' && (
+            <p className="text-center text-muted-foreground mt-4">
+              اختر مربعاً لبدء السؤال
+            </p>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

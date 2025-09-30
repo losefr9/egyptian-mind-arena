@@ -172,6 +172,41 @@ export type Database = {
         }
         Relationships: []
       }
+      pending_moves: {
+        Row: {
+          cell_index: number
+          expires_at: string | null
+          game_session_id: string
+          id: string
+          player_id: string
+          reserved_at: string | null
+        }
+        Insert: {
+          cell_index: number
+          expires_at?: string | null
+          game_session_id: string
+          id?: string
+          player_id: string
+          reserved_at?: string | null
+        }
+        Update: {
+          cell_index?: number
+          expires_at?: string | null
+          game_session_id?: string
+          id?: string
+          player_id?: string
+          reserved_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_moves_game_session_id_fkey"
+            columns: ["game_session_id"]
+            isOneToOne: false
+            referencedRelation: "game_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       platform_earnings: {
         Row: {
           created_at: string | null
@@ -499,6 +534,27 @@ export type Database = {
         Args: { p_bet_amount: number; p_game_id: string; p_user_id: string }
         Returns: Json
       }
+      cancel_reservation: {
+        Args: {
+          p_cell_index: number
+          p_game_session_id: string
+          p_player_id: string
+        }
+        Returns: Json
+      }
+      cleanup_expired_reservations: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      commit_move: {
+        Args: {
+          p_cell_index: number
+          p_game_session_id: string
+          p_player_id: string
+          p_symbol: string
+        }
+        Returns: Json
+      }
       create_admin_auth_accounts: {
         Args: Record<PropertyKey, never>
         Returns: undefined
@@ -583,6 +639,14 @@ export type Database = {
       log_user_activity: {
         Args: { _action: string; _details?: Json; _user_id: string }
         Returns: undefined
+      }
+      reserve_cell: {
+        Args: {
+          p_cell_index: number
+          p_game_session_id: string
+          p_player_id: string
+        }
+        Returns: Json
       }
       search_user_by_username: {
         Args: { username_input: string }
