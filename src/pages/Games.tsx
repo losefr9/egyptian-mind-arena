@@ -13,7 +13,6 @@ import { BettingLevels } from '@/components/games/betting-levels';
 import { WaitingScreen } from '@/components/games/waiting-screen';
 import { MatchPreparationScreen } from '@/components/games/match-preparation-screen';
 import { XORaceArena } from '@/components/games/xo-game/xo-race-arena';
-import { ChessArena } from '@/components/games/chess-game/ChessArena';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -261,18 +260,11 @@ const Games = () => {
         ) : null;
       
       case 'playing':
-        return currentGameSession ? (
-          selectedGame?.name === 'XO Game' ? (
-            <XORaceArena
-              gameSession={currentGameSession}
-              onExit={handleExitGame}
-            />
-          ) : selectedGame?.name === 'شطرنج' ? (
-            <ChessArena
-              gameSession={currentGameSession}
-              onExit={handleExitGame}
-            />
-          ) : null
+        return currentGameSession && selectedGame?.name === 'XO Game' ? (
+          <XORaceArena
+            gameSession={currentGameSession}
+            onExit={handleExitGame}
+          />
         ) : null;
       
       default:
