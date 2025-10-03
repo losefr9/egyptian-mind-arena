@@ -14,6 +14,56 @@ export type Database = {
   }
   public: {
     Tables: {
+      chess_matches: {
+        Row: {
+          board_state: string
+          created_at: string | null
+          current_turn_player_id: string | null
+          game_session_id: string | null
+          id: string
+          last_move_time: string | null
+          match_status: string | null
+          move_history: Json | null
+          player1_time_remaining: number
+          player2_time_remaining: number
+          updated_at: string | null
+        }
+        Insert: {
+          board_state?: string
+          created_at?: string | null
+          current_turn_player_id?: string | null
+          game_session_id?: string | null
+          id?: string
+          last_move_time?: string | null
+          match_status?: string | null
+          move_history?: Json | null
+          player1_time_remaining?: number
+          player2_time_remaining?: number
+          updated_at?: string | null
+        }
+        Update: {
+          board_state?: string
+          created_at?: string | null
+          current_turn_player_id?: string | null
+          game_session_id?: string | null
+          id?: string
+          last_move_time?: string | null
+          match_status?: string | null
+          move_history?: Json | null
+          player1_time_remaining?: number
+          player2_time_remaining?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chess_matches_game_session_id_fkey"
+            columns: ["game_session_id"]
+            isOneToOne: true
+            referencedRelation: "game_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deposit_requests: {
         Row: {
           admin_notes: string | null
@@ -640,6 +690,17 @@ export type Database = {
         Args: { _action: string; _details?: Json; _user_id: string }
         Returns: undefined
       }
+      make_chess_move: {
+        Args: {
+          p_board_state: string
+          p_from: string
+          p_game_session_id: string
+          p_move_data: Json
+          p_player_id: string
+          p_to: string
+        }
+        Returns: Json
+      }
       reserve_cell: {
         Args: {
           p_cell_index: number
@@ -656,6 +717,14 @@ export type Database = {
           username: string
           wins: number
         }[]
+      }
+      update_chess_timer: {
+        Args: {
+          p_game_session_id: string
+          p_player1_time: number
+          p_player2_time: number
+        }
+        Returns: Json
       }
       update_user_balance: {
         Args: { _amount: number; _operation: string; _user_id: string }
