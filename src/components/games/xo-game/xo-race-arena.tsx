@@ -371,7 +371,7 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
     }
   };
 
-  // معالجة الإجابة على السؤال مع commit_move
+  // معالجة الإجابة على السؤال مع commit_move وتحديث فوري (Optimistic UI)
   const handleMathAnswer = async (answer: number, isCorrect: boolean) => {
     if (selectedCell === null || !mathQuestion || !raceMode) return;
 
@@ -415,12 +415,28 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
       return;
     }
 
-    // الإجابة صحيحة، تأكيد الحركة ذرياً
+    // الإجابة صحيحة - تطبيق Optimistic UI Update فوراً
+    console.log('✅ إجابة صحيحة - تحديث فوري للوحة');
+    
+    // 1. تحديث اللوحة محلياً فوراً (Optimistic Update)
+    const optimisticBoard = [...board];
+    optimisticBoard[cellIndex] = currentPlayer;
+    setBoard(optimisticBoard);
+    
+    // 2. إخفاء السؤال فوراً
+    setShowQuestion(false);
+    setSelectedCell(null);
+    setTimeLeft(15);
+    setRaceMode(false);
+    
+    // 3. عرض رسالة النجاح
+    toast.success('🎯 إجابة صحيحة!');
+    
     setPendingMove({cellIndex, symbol: currentPlayer});
     setSavingMove(true);
 
     try {
-      console.log('📝 تأكيد الحركة في قاعدة البيانات');
+      console.log('📝 حفظ الحركة في قاعدة البيانات...');
 
       const { data, error } = await supabase.rpc('commit_move', {
         p_game_session_id: gameSession.id,
@@ -434,15 +450,17 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
       const result = data as { success: boolean; error?: string; message: string; board_state?: string[] };
 
       if (!result.success) {
-        console.error('❌ فشل في تأكيد الحركة:', result);
+        console.error('❌ فشل في حفظ الحركة:', result);
+        
+        // Rollback - العودة للحالة السابقة
+        const rollbackBoard = [...board];
+        rollbackBoard[cellIndex] = '';
+        setBoard(rollbackBoard);
+        
         toast.error(result.message);
         
         setPendingMove(null);
         setSavingMove(false);
-        setSelectedCell(null);
-        setShowQuestion(false);
-        setTimeLeft(15);
-        setRaceMode(false);
         
         setTimeout(() => {
           setLockedCells(prev => {
@@ -455,8 +473,18 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
         return;
       }
 
-      console.log('✅ تم تأكيد الحركة بنجاح');
-      toast.success('🎯 إجابة صحيحة!');
+      console.log('✅ تم حفظ الحركة بنجاح في قاعدة البيانات');
+      
+      // التحقق من أن اللوحة المحفوظة تطابق اللوحة المحلية
+      if (result.board_state && Array.isArray(result.board_state)) {
+        const serverBoard = result.board_state;
+        if (serverBoard[cellIndex] === currentPlayer) {
+          console.log('✅ تطابق اللوحة مع الخادم');
+        } else {
+          console.warn('⚠️ عدم تطابق - تحديث من الخادم');
+          setBoard(serverBoard);
+        }
+      }
       
       if (subscriptionRef.current) {
         subscriptionRef.current.send({
@@ -476,22 +504,21 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
         answer_given: answer,
       });
 
-      setSelectedCell(null);
-      setShowQuestion(false);
-      setTimeLeft(15);
-      setRaceMode(false);
       setPendingMove(null);
+      setSavingMove(false);
 
     } catch (error) {
-      console.error('❌ خطأ في تأكيد الحركة:', error);
-      toast.error('فشل في حفظ الحركة');
+      console.error('❌ خطأ في حفظ الحركة:', error);
+      
+      // Rollback - العودة للحالة السابقة
+      const rollbackBoard = [...board];
+      rollbackBoard[cellIndex] = '';
+      setBoard(rollbackBoard);
+      
+      toast.error('فشل في حفظ الحركة - حاول مرة أخرى');
       
       setPendingMove(null);
       setSavingMove(false);
-      setSelectedCell(null);
-      setShowQuestion(false);
-      setTimeLeft(15);
-      setRaceMode(false);
       
       setTimeout(() => {
         setLockedCells(prev => {

@@ -11,12 +11,14 @@ import {
 import { GameCard } from '@/components/games/game-card';
 import { BettingLevels } from '@/components/games/betting-levels';
 import { WaitingScreen } from '@/components/games/waiting-screen';
+import { MatchPreparationScreen } from '@/components/games/match-preparation-screen';
 import { XORaceArena } from '@/components/games/xo-game/xo-race-arena';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
+import { InstallAppButton } from '@/components/ui/install-app-button';
 
-type ViewState = 'games' | 'betting' | 'waiting' | 'playing';
+type ViewState = 'games' | 'betting' | 'waiting' | 'preparation' | 'playing';
 
 interface Game {
   id: string;
@@ -45,6 +47,8 @@ const Games = () => {
   const [totalActivePlayers, setTotalActivePlayers] = useState(0);
   const [currentGameSession, setCurrentGameSession] = useState<GameSession | null>(null);
   const [isMatchmaking, setIsMatchmaking] = useState(false);
+  const [player1Name, setPlayer1Name] = useState('');
+  const [player2Name, setPlayer2Name] = useState('');
 
   useEffect(() => {
     fetchGames();
@@ -213,10 +217,34 @@ const Games = () => {
             gameName={selectedGame.name}
             gameSessionId={currentGameSession.id}
             onCancel={handleBackToBetting}
-            onMatchFound={(gameSession) => {
+            onMatchFound={async (gameSession) => {
               setCurrentGameSession(gameSession);
-              setViewState('playing');
+              
+              // جلب أسماء اللاعبين
+              const { data: player1Data } = await supabase.rpc('get_public_username', { 
+                user_id_input: gameSession.player1_id 
+              });
+              const { data: player2Data } = await supabase.rpc('get_public_username', { 
+                user_id_input: gameSession.player2_id 
+              });
+
+              setPlayer1Name(player1Data?.[0]?.username || 'لاعب 1');
+              setPlayer2Name(player2Data?.[0]?.username || 'لاعب 2');
+              
+              // الانتقال لشاشة التحضير لمدة 5 ثواني
+              setViewState('preparation');
             }}
+          />
+        ) : null;
+      
+      case 'preparation':
+        return selectedGame && currentGameSession ? (
+          <MatchPreparationScreen
+            player1Name={player1Name}
+            player2Name={player2Name}
+            betAmount={selectedBetAmount}
+            gameName={selectedGame.name}
+            onComplete={() => setViewState('playing')}
           />
         ) : null;
       
@@ -231,10 +259,12 @@ const Games = () => {
       default:
         return (
           <>
-            <div className="mb-8 text-center">
+            <div className="mb-8 text-center space-y-4">
               <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-primary to-primary-glow bg-clip-text text-transparent">
                 راهن على نفسك وليس على الحظ واربح
               </h1>
+              
+              <InstallAppButton />
               
               <Card className="inline-block bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20 mt-6">
                 <CardContent className="p-4">

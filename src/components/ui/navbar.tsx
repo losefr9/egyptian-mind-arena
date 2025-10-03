@@ -12,6 +12,7 @@ import {
   Mail,
   Shield
 } from 'lucide-react';
+import { InstallAppButton } from './install-app-button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -120,6 +121,10 @@ export const Navbar = ({ isLoggedIn = false, username = "مستخدم", balance 
 
           {/* منطقة المستخدم */}
           <div className="flex items-center space-x-4 space-x-reverse">
+            <div className="hidden sm:block">
+              <InstallAppButton />
+            </div>
+            
             {!isLoggedIn ? (
               <div className="flex space-x-2 space-x-reverse">
                 <Button 
