@@ -19,20 +19,4 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  optimizeDeps: {
-    include: ['react', 'react-dom', 'react/jsx-runtime'],
-    esbuildOptions: {
-      resolveExtensions: ['.tsx', '.ts', '.jsx', '.js'],
-    },
-  },
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks: undefined,
-      },
-    },
-    commonjsOptions: {
-      include: [/node_modules/],
-    },
-  },
 }));
