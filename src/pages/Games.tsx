@@ -262,7 +262,7 @@ const Games = () => {
       
       case 'playing':
         return currentGameSession ? (
-          selectedGame?.name === 'XO' ? (
+          selectedGame?.name === 'XO Game' ? (
             <XORaceArena
               gameSession={currentGameSession}
               onExit={handleExitGame}
