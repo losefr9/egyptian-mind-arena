@@ -56,6 +56,33 @@ const Games = () => {
     setupPresenceTracking();
   }, []);
 
+  // تحديث selectedGame تلقائياً عند بدء المباراة
+  useEffect(() => {
+    const updateSelectedGame = async () => {
+      if (currentGameSession && viewState === 'playing') {
+        try {
+          const { data: gameData, error } = await supabase
+            .from('game_sessions')
+            .select('game_id, games(id, name, description, image_url)')
+            .eq('id', currentGameSession.id)
+            .single();
+
+          if (error) throw error;
+
+          if (gameData && gameData.games) {
+            const game = gameData.games as unknown as Game;
+            console.log('🎮 تحديث اللعبة المحددة:', game.name);
+            setSelectedGame(game);
+          }
+        } catch (error) {
+          console.error('خطأ في جلب بيانات اللعبة:', error);
+        }
+      }
+    };
+
+    updateSelectedGame();
+  }, [currentGameSession?.id, viewState]);
+
   const setupPresenceTracking = () => {
     const channel = supabase.channel('online-players');
     
@@ -261,18 +288,34 @@ const Games = () => {
         ) : null;
       
       case 'playing':
+        console.log('🎯 اللعبة المحددة:', selectedGame?.name);
+        console.log('📋 جلسة اللعب:', currentGameSession?.id);
+        
         return currentGameSession ? (
           selectedGame?.name === 'XO Game' ? (
-            <XORaceArena
-              gameSession={currentGameSession}
-              onExit={handleExitGame}
-            />
+            <>
+              {console.log('✅ عرض لعبة XO')}
+              <XORaceArena
+                gameSession={currentGameSession}
+                onExit={handleExitGame}
+              />
+            </>
           ) : selectedGame?.name === 'شطرنج' ? (
-            <ChessArena
-              gameSession={currentGameSession}
-              onExit={handleExitGame}
-            />
-          ) : null
+            <>
+              {console.log('♟️ عرض لعبة الشطرنج')}
+              <ChessArena
+                gameSession={currentGameSession}
+                onExit={handleExitGame}
+              />
+            </>
+          ) : (
+            <>
+              {console.log('⚠️ لعبة غير معروفة:', selectedGame?.name)}
+              <div className="text-center p-8">
+                <p>جاري تحميل اللعبة...</p>
+              </div>
+            </>
+          )
         ) : null;
       
       default:
