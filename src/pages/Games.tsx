@@ -288,35 +288,26 @@ const Games = () => {
         ) : null;
       
       case 'playing':
-        console.log('🎯 اللعبة المحددة:', selectedGame?.name);
-        console.log('📋 جلسة اللعب:', currentGameSession?.id);
-        
-        return currentGameSession ? (
-          selectedGame?.name === 'XO Game' ? (
-            <>
-              {console.log('✅ عرض لعبة XO')}
-              <XORaceArena
-                gameSession={currentGameSession}
-                onExit={handleExitGame}
-              />
-            </>
-          ) : selectedGame?.name === 'شطرنج' ? (
-            <>
-              {console.log('♟️ عرض لعبة الشطرنج')}
-              <ChessArena
-                gameSession={currentGameSession}
-                onExit={handleExitGame}
-              />
-            </>
-          ) : (
-            <>
-              {console.log('⚠️ لعبة غير معروفة:', selectedGame?.name)}
+        if (currentGameSession) {
+          console.log('🎯 اللعبة المحددة:', selectedGame?.name);
+          console.log('📋 جلسة اللعب:', currentGameSession?.id);
+          
+          if (selectedGame?.name === 'XO Game') {
+            console.log('✅ عرض لعبة XO');
+            return <XORaceArena gameSession={currentGameSession} onExit={handleExitGame} />;
+          } else if (selectedGame?.name === 'شطرنج') {
+            console.log('♟️ عرض لعبة الشطرنج');
+            return <ChessArena gameSession={currentGameSession} onExit={handleExitGame} />;
+          } else {
+            console.log('⚠️ لعبة غير معروفة:', selectedGame?.name);
+            return (
               <div className="text-center p-8">
                 <p>جاري تحميل اللعبة...</p>
               </div>
-            </>
-          )
-        ) : null;
+            );
+          }
+        }
+        return null;
       
       default:
         return (
