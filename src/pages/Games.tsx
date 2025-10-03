@@ -44,7 +44,7 @@ const Games = () => {
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [selectedBetAmount, setSelectedBetAmount] = useState<number>(0);
   const [games, setGames] = useState<Game[]>([]);
-  const [totalActivePlayers, setTotalActivePlayers] = useState(0);
+  const [onlinePlayersCount, setOnlinePlayersCount] = useState(0);
   const [currentGameSession, setCurrentGameSession] = useState<GameSession | null>(null);
   const [isMatchmaking, setIsMatchmaking] = useState(false);
   const [player1Name, setPlayer1Name] = useState('');
@@ -52,7 +52,37 @@ const Games = () => {
 
   useEffect(() => {
     fetchGames();
+    setupPresenceTracking();
   }, []);
+
+  const setupPresenceTracking = () => {
+    const channel = supabase.channel('online-players');
+    
+    channel
+      .on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState();
+        const count = Object.keys(state).length;
+        setOnlinePlayersCount(count);
+      })
+      .on('presence', { event: 'join' }, ({ newPresences }) => {
+        console.log('New players joined:', newPresences);
+      })
+      .on('presence', { event: 'leave' }, ({ leftPresences }) => {
+        console.log('Players left:', leftPresences);
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED' && user?.id) {
+          await channel.track({
+            user_id: user.id,
+            online_at: new Date().toISOString(),
+          });
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  };
 
   const fetchGames = async () => {
     try {
@@ -63,29 +93,10 @@ const Games = () => {
 
       if (error) throw error;
 
-      // حساب عدد اللاعبين النشطين الحقيقي
-      const { data: activeSessions } = await supabase
-        .from('game_sessions')
-        .select('game_id')
-        .in('status', ['waiting', 'in_progress']);
-
-      const gamesWithPlayers = gamesData?.map((game) => {
-        const activeCount = activeSessions?.filter(session => session.game_id === game.id).length || 0;
-        return {
-          ...game,
-          activePlayersCount: activeCount
-        };
-      }) || [];
-
-      setGames(gamesWithPlayers);
-      
-      // حساب إجمالي اللاعبين النشطين
-      const total = gamesWithPlayers.reduce((sum, game) => sum + (game.activePlayersCount || 0), 0);
-      setTotalActivePlayers(total);
+      setGames(gamesData || []);
     } catch (error) {
       console.error('Error fetching games:', error);
       setGames([]);
-      setTotalActivePlayers(0);
     }
   };
 
@@ -270,12 +281,15 @@ const Games = () => {
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2">
-                      <Zap className="h-5 w-5 text-primary animate-pulse" />
-                      <span className="font-semibold">اللاعبون النشطون:</span>
+                      <div className="relative">
+                        <div className="h-3 w-3 bg-success rounded-full animate-pulse" />
+                        <div className="absolute inset-0 h-3 w-3 bg-success rounded-full animate-ping opacity-75" />
+                      </div>
+                      <span className="font-semibold">متصل الآن:</span>
                     </div>
                     <Badge variant="golden" className="text-lg px-4 py-1">
                       <Users className="h-4 w-4 ml-1" />
-                      {totalActivePlayers.toLocaleString()}
+                      {onlinePlayersCount.toLocaleString()}
                     </Badge>
                   </div>
                 </CardContent>
