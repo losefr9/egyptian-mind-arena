@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Chessboard } from 'react-chessboard';
-import { Chess } from 'chess.js';
+import { Chess, Square } from 'chess.js';
+import { ChessBoard } from './ChessBoard';
 import { ChessTimer } from './ChessTimer';
 import { MoveHistory } from './MoveHistory';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Trophy, Users } from 'lucide-react';
+import { ArrowLeft, Trophy } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -116,7 +116,7 @@ export const ChessArena: React.FC<ChessArenaProps> = ({ gameSession, onExit }) =
     };
   };
 
-  const handleMove = async (sourceSquare: string, targetSquare: string) => {
+  const handleMove = async (from: Square, to: Square): Promise<boolean> => {
     if (!isMyTurn) {
       toast.error('ليس دورك الآن!');
       return false;
@@ -125,8 +125,8 @@ export const ChessArena: React.FC<ChessArenaProps> = ({ gameSession, onExit }) =
     try {
       const gameCopy = new Chess(game.fen());
       const move = gameCopy.move({
-        from: sourceSquare,
-        to: targetSquare,
+        from,
+        to,
         promotion: 'q' // دائماً ترقية إلى ملكة
       });
 
@@ -134,8 +134,8 @@ export const ChessArena: React.FC<ChessArenaProps> = ({ gameSession, onExit }) =
 
       const newFen = gameCopy.fen();
       const moveData = {
-        from: sourceSquare,
-        to: targetSquare,
+        from,
+        to,
         piece: move.piece,
         captured: move.captured || null,
         timestamp: new Date().toISOString()
@@ -145,8 +145,8 @@ export const ChessArena: React.FC<ChessArenaProps> = ({ gameSession, onExit }) =
       const { data, error } = await supabase.rpc('make_chess_move', {
         p_game_session_id: gameSession.id,
         p_player_id: user?.id,
-        p_from: sourceSquare,
-        p_to: targetSquare,
+        p_from: from,
+        p_to: to,
         p_board_state: newFen,
         p_move_data: moveData
       });
@@ -274,20 +274,12 @@ export const ChessArena: React.FC<ChessArenaProps> = ({ gameSession, onExit }) =
           <div className="order-1 lg:order-2">
             <Card className="game-board-glow">
               <CardContent className="p-4">
-                <div style={{ width: '100%', maxWidth: '600px', margin: '0 auto' }}>
-                  <Chessboard
-                    position={game.fen()}
-                    onPieceDrop={handleMove}
-                    boardOrientation={playerColor as 'white' | 'black'}
-                    arePiecesDraggable={!isGameOver && isMyTurn}
-                    customBoardStyle={{
-                      borderRadius: '8px',
-                      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
-                    }}
-                    customDarkSquareStyle={{ backgroundColor: '#3B82F6' }}
-                    customLightSquareStyle={{ backgroundColor: '#E0E7FF' }}
-                  />
-                </div>
+                <ChessBoard
+                  game={game}
+                  onMove={handleMove}
+                  playerColor={playerColor}
+                  disabled={isGameOver || !isMyTurn}
+                />
 
                 {isGameOver && (
                   <div className="mt-4 p-4 rounded-lg bg-primary/10 border border-primary/20 text-center">
