@@ -71,6 +71,18 @@ export const DepositsRequests = () => {
         return;
       }
 
+      // Log admin access for sensitive data
+      for (const request of depositsData) {
+        try {
+          await supabase.rpc('log_admin_deposit_access', {
+            request_id: request.id
+          });
+        } catch (logError) {
+          // Continue even if logging fails
+          console.warn('Failed to log access:', logError);
+        }
+      }
+
       // Get all unique user IDs
       const userIds = [...new Set(depositsData.map(req => req.user_id))];
 

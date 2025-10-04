@@ -686,6 +686,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      log_admin_deposit_access: {
+        Args: { request_id: string }
+        Returns: undefined
+      }
       log_user_activity: {
         Args: { _action: string; _details?: Json; _user_id: string }
         Returns: undefined
