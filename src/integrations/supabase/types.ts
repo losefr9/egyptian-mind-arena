@@ -112,6 +112,56 @@ export type Database = {
         }
         Relationships: []
       }
+      domino_matches: {
+        Row: {
+          board_chain: Json | null
+          boneyard: Json | null
+          created_at: string | null
+          current_turn_player_id: string | null
+          game_session_id: string | null
+          id: string
+          last_move_time: string | null
+          match_status: string | null
+          player1_hand: Json | null
+          player2_hand: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          board_chain?: Json | null
+          boneyard?: Json | null
+          created_at?: string | null
+          current_turn_player_id?: string | null
+          game_session_id?: string | null
+          id?: string
+          last_move_time?: string | null
+          match_status?: string | null
+          player1_hand?: Json | null
+          player2_hand?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          board_chain?: Json | null
+          boneyard?: Json | null
+          created_at?: string | null
+          current_turn_player_id?: string | null
+          game_session_id?: string | null
+          id?: string
+          last_move_time?: string | null
+          match_status?: string | null
+          player1_hand?: Json | null
+          player2_hand?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "domino_matches_game_session_id_fkey"
+            columns: ["game_session_id"]
+            isOneToOne: false
+            referencedRelation: "game_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       game_sessions: {
         Row: {
           bet_amount: number
@@ -640,12 +690,20 @@ export type Database = {
         Args: { session_id: string }
         Returns: undefined
       }
+      draw_from_boneyard: {
+        Args: { p_game_session_id: string; p_player_id: string }
+        Returns: Json
+      }
       find_match_and_create_session: {
         Args: { p_bet_amount: number; p_game_id: string; p_user_id: string }
         Returns: Json
       }
       find_match_and_create_session_v3: {
         Args: { p_bet_amount: number; p_game_id: string; p_user_id: string }
+        Returns: Json
+      }
+      generate_domino_set: {
+        Args: Record<PropertyKey, never>
         Returns: Json
       }
       generate_random_math_question: {
@@ -732,6 +790,15 @@ export type Database = {
         }
         Returns: Json
       }
+      make_domino_move: {
+        Args: {
+          p_game_session_id: string
+          p_piece: Json
+          p_player_id: string
+          p_side: string
+        }
+        Returns: Json
+      }
       reserve_cell: {
         Args: {
           p_cell_index: number
@@ -748,6 +815,10 @@ export type Database = {
           username: string
           wins: number
         }[]
+      }
+      shuffle_and_deal_dominos: {
+        Args: { p_game_session_id: string }
+        Returns: Json
       }
       update_chess_timer: {
         Args: {

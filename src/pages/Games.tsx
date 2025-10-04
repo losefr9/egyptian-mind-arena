@@ -279,14 +279,12 @@ const Games = () => {
               player2Id={currentGameSession.player2_id}
               betAmount={currentGameSession.bet_amount}
               onGameEnd={async (winnerId) => {
-                // معالجة نهاية اللعبة
                 if (winnerId) {
                   await supabase.rpc('calculate_match_earnings', {
                     session_id: currentGameSession.id,
                     winner_user_id: winnerId
                   });
                 } else {
-                  // تعادل
                   await supabase.rpc('handle_draw_match', {
                     session_id: currentGameSession.id
                   });
@@ -294,6 +292,34 @@ const Games = () => {
                 handleExitGame();
               }}
             />
+          );
+        } else if (selectedGame.name === 'دومينو') {
+          const DominoArena = React.lazy(() => 
+            import('@/components/games/domino-game/domino-arena').then(m => ({ default: m.DominoArena }))
+          );
+          return (
+            <React.Suspense fallback={<div className="flex items-center justify-center min-h-screen">جاري التحميل...</div>}>
+              <DominoArena
+                sessionId={currentGameSession.id}
+                currentUserId={user!.id}
+                player1Id={currentGameSession.player1_id}
+                player2Id={currentGameSession.player2_id}
+                betAmount={currentGameSession.bet_amount}
+                onGameEnd={async (winnerId) => {
+                  if (winnerId) {
+                    await supabase.rpc('calculate_match_earnings', {
+                      session_id: currentGameSession.id,
+                      winner_user_id: winnerId
+                    });
+                  } else {
+                    await supabase.rpc('handle_draw_match', {
+                      session_id: currentGameSession.id
+                    });
+                  }
+                  handleExitGame();
+                }}
+              />
+            </React.Suspense>
           );
         }
         
