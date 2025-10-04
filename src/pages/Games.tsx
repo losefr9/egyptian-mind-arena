@@ -270,7 +270,7 @@ const Games = () => {
               onExit={handleExitGame}
             />
           );
-        } else if (selectedGame.name === 'Chess') {
+        } else if (selectedGame.name === 'شطرنج' || selectedGame.name === 'Chess') {
           return (
             <ChessArena
               sessionId={currentGameSession.id}
