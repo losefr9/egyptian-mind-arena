@@ -563,6 +563,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "xo_matches_current_question_id_fkey"
+            columns: ["current_question_id"]
+            isOneToOne: false
+            referencedRelation: "math_questions_safe"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "xo_matches_game_session_id_fkey"
             columns: ["game_session_id"]
             isOneToOne: true
@@ -573,7 +580,27 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      math_questions_safe: {
+        Row: {
+          created_at: string | null
+          difficulty_level: number | null
+          id: string | null
+          question: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          difficulty_level?: number | null
+          id?: string | null
+          question?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          difficulty_level?: number | null
+          id?: string | null
+          question?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       calculate_match_earnings: {
