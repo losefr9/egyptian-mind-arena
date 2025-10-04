@@ -13,6 +13,7 @@ import { BettingLevels } from '@/components/games/betting-levels';
 import { WaitingScreen } from '@/components/games/waiting-screen';
 import { MatchPreparationScreen } from '@/components/games/match-preparation-screen';
 import { XORaceArena } from '@/components/games/xo-game/xo-race-arena';
+import { ChessArena } from '@/components/games/chess-game/chess-arena';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -260,12 +261,43 @@ const Games = () => {
         ) : null;
       
       case 'playing':
-        return currentGameSession && selectedGame?.name === 'XO Game' ? (
-          <XORaceArena
-            gameSession={currentGameSession}
-            onExit={handleExitGame}
-          />
-        ) : null;
+        if (!currentGameSession || !selectedGame) return null;
+        
+        if (selectedGame.name === 'XO Game') {
+          return (
+            <XORaceArena
+              gameSession={currentGameSession}
+              onExit={handleExitGame}
+            />
+          );
+        } else if (selectedGame.name === 'Chess') {
+          return (
+            <ChessArena
+              sessionId={currentGameSession.id}
+              currentUserId={user!.id}
+              player1Id={currentGameSession.player1_id}
+              player2Id={currentGameSession.player2_id}
+              betAmount={currentGameSession.bet_amount}
+              onGameEnd={async (winnerId) => {
+                // معالجة نهاية اللعبة
+                if (winnerId) {
+                  await supabase.rpc('calculate_match_earnings', {
+                    session_id: currentGameSession.id,
+                    winner_user_id: winnerId
+                  });
+                } else {
+                  // تعادل
+                  await supabase.rpc('handle_draw_match', {
+                    session_id: currentGameSession.id
+                  });
+                }
+                handleExitGame();
+              }}
+            />
+          );
+        }
+        
+        return null;
       
       default:
         return (
