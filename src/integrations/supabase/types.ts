@@ -248,6 +248,62 @@ export type Database = {
         }
         Relationships: []
       }
+      ludo_matches: {
+        Row: {
+          board_state: Json | null
+          can_roll_again: boolean | null
+          consecutive_sixes: number | null
+          created_at: string | null
+          current_turn_player_id: string | null
+          game_session_id: string | null
+          id: string
+          last_dice_roll: number | null
+          last_move_time: string | null
+          match_status: string | null
+          player1_pieces: Json | null
+          player2_pieces: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          board_state?: Json | null
+          can_roll_again?: boolean | null
+          consecutive_sixes?: number | null
+          created_at?: string | null
+          current_turn_player_id?: string | null
+          game_session_id?: string | null
+          id?: string
+          last_dice_roll?: number | null
+          last_move_time?: string | null
+          match_status?: string | null
+          player1_pieces?: Json | null
+          player2_pieces?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          board_state?: Json | null
+          can_roll_again?: boolean | null
+          consecutive_sixes?: number | null
+          created_at?: string | null
+          current_turn_player_id?: string | null
+          game_session_id?: string | null
+          id?: string
+          last_dice_roll?: number | null
+          last_move_time?: string | null
+          match_status?: string | null
+          player1_pieces?: Json | null
+          player2_pieces?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ludo_matches_game_session_id_fkey"
+            columns: ["game_session_id"]
+            isOneToOne: false
+            referencedRelation: "game_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       math_questions: {
         Row: {
           answer: number
@@ -799,12 +855,25 @@ export type Database = {
         }
         Returns: Json
       }
+      move_ludo_piece: {
+        Args: {
+          p_dice_roll: number
+          p_game_session_id: string
+          p_piece_id: string
+          p_player_id: string
+        }
+        Returns: Json
+      }
       reserve_cell: {
         Args: {
           p_cell_index: number
           p_game_session_id: string
           p_player_id: string
         }
+        Returns: Json
+      }
+      roll_ludo_dice: {
+        Args: { p_game_session_id: string; p_player_id: string }
         Returns: Json
       }
       search_user_by_username: {

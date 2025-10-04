@@ -321,6 +321,22 @@ const Games = () => {
               />
             </React.Suspense>
           );
+        } else if (selectedGame.name === 'لودو') {
+          const LudoArena = React.lazy(() => 
+            import('@/components/games/ludo-game/ludo-arena').then(m => ({ default: m.LudoArena }))
+          );
+          return (
+            <React.Suspense fallback={<div className="flex items-center justify-center min-h-screen">جاري التحميل...</div>}>
+              <LudoArena
+                sessionId={currentGameSession.id}
+                currentUserId={user!.id}
+                player1Id={currentGameSession.player1_id}
+                player2Id={currentGameSession.player2_id}
+                betAmount={currentGameSession.bet_amount}
+                onExit={handleExitGame}
+              />
+            </React.Suspense>
+          );
         }
         
         return null;
