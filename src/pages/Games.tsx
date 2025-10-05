@@ -31,6 +31,7 @@ interface Game {
 
 interface GameSession {
   id: string;
+  game_id: string;
   bet_amount: number;
   player1_id: string;
   player2_id: string;
@@ -55,6 +56,34 @@ const Games = () => {
     fetchGames();
     setupPresenceTracking();
   }, []);
+
+  // إعادة جلب بيانات اللعبة الصحيحة عند تغيير currentGameSession
+  useEffect(() => {
+    const fetchGameFromSession = async () => {
+      if (currentGameSession && currentGameSession.game_id && viewState === 'playing') {
+        console.log('🔍 جلب بيانات اللعبة من game_id:', currentGameSession.game_id);
+        
+        try {
+          const { data: gameData, error } = await supabase
+            .from('games')
+            .select('*')
+            .eq('id', currentGameSession.game_id)
+            .single();
+
+          if (error) throw error;
+
+          if (gameData) {
+            console.log('✅ تم جلب اللعبة بنجاح:', gameData.name);
+            setSelectedGame(gameData);
+          }
+        } catch (error) {
+          console.error('❌ خطأ في جلب بيانات اللعبة:', error);
+        }
+      }
+    };
+
+    fetchGameFromSession();
+  }, [currentGameSession, viewState]);
 
   const setupPresenceTracking = () => {
     const channel = supabase.channel('online-players');
@@ -261,7 +290,24 @@ const Games = () => {
         ) : null;
       
       case 'playing':
-        if (!currentGameSession || !selectedGame) return null;
+        if (!currentGameSession) {
+          console.error('❌ لا توجد جلسة لعب');
+          return null;
+        }
+
+        if (!selectedGame) {
+          console.error('❌ لا توجد لعبة محددة');
+          return (
+            <div className="flex items-center justify-center min-h-screen">
+              <Card className="p-6">
+                <p>خطأ: لم يتم تحديد اللعبة بشكل صحيح</p>
+              </Card>
+            </div>
+          );
+        }
+
+        console.log('🎮 عرض اللعبة:', selectedGame.name);
+        console.log('📋 معرف اللعبة في الجلسة:', currentGameSession.game_id);
         
         if (selectedGame.name === 'XO Game') {
           return (
