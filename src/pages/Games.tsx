@@ -51,6 +51,7 @@ const Games = () => {
   const [isMatchmaking, setIsMatchmaking] = useState(false);
   const [player1Name, setPlayer1Name] = useState('');
   const [player2Name, setPlayer2Name] = useState('');
+  const [isLoadingGame, setIsLoadingGame] = useState(false);
 
   useEffect(() => {
     fetchGames();
@@ -61,7 +62,9 @@ const Games = () => {
   useEffect(() => {
     const fetchGameFromSession = async () => {
       if (currentGameSession && currentGameSession.game_id && viewState === 'playing') {
+        setIsLoadingGame(true);
         console.log('🔍 جلب بيانات اللعبة من game_id:', currentGameSession.game_id);
+        console.log('⏰ وقت بدء الجلب:', new Date().toISOString());
         
         try {
           const { data: gameData, error } = await supabase
@@ -74,10 +77,15 @@ const Games = () => {
 
           if (gameData) {
             console.log('✅ تم جلب اللعبة بنجاح:', gameData.name);
+            console.log('🆔 معرف اللعبة المجلوبة:', gameData.id);
+            console.log('⏰ وقت انتهاء الجلب:', new Date().toISOString());
             setSelectedGame(gameData);
           }
         } catch (error) {
           console.error('❌ خطأ في جلب بيانات اللعبة:', error);
+          toast.error('خطأ في تحميل اللعبة');
+        } finally {
+          setIsLoadingGame(false);
         }
       }
     };
@@ -295,28 +303,42 @@ const Games = () => {
           return null;
         }
 
-        if (!selectedGame) {
-          console.error('❌ لا توجد لعبة محددة');
+        // عرض شاشة التحميل أثناء جلب اللعبة
+        if (isLoadingGame || !selectedGame) {
           return (
             <div className="flex items-center justify-center min-h-screen">
-              <Card className="p-6">
-                <p>خطأ: لم يتم تحديد اللعبة بشكل صحيح</p>
+              <Card className="p-8 text-center">
+                <div className="animate-spin h-12 w-12 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+                <p className="text-lg font-semibold">جاري تحميل اللعبة...</p>
               </Card>
             </div>
           );
         }
 
         console.log('🎮 عرض اللعبة:', selectedGame.name);
+        console.log('🆔 معرف اللعبة المحددة:', selectedGame.id);
         console.log('📋 معرف اللعبة في الجلسة:', currentGameSession.game_id);
+        console.log('✅ تطابق المعرفات:', selectedGame.id === currentGameSession.game_id);
         
-        if (selectedGame.name === 'XO Game') {
+        // استخدام game_id للمقارنة بدلاً من الأسماء
+        const gameId = selectedGame.id;
+        
+        // جلب معرفات الألعاب من قاعدة البيانات
+        const xoGame = games.find(g => g.name === 'XO Game');
+        const chessGame = games.find(g => g.name === 'شطرنج' || g.name === 'Chess');
+        const dominoGame = games.find(g => g.name === 'دومينو');
+        const ludoGame = games.find(g => g.name === 'لودو');
+        
+        if (xoGame && gameId === xoGame.id) {
+          console.log('▶️ تشغيل لعبة XO');
           return (
             <XORaceArena
               gameSession={currentGameSession}
               onExit={handleExitGame}
             />
           );
-        } else if (selectedGame.name === 'شطرنج' || selectedGame.name === 'Chess') {
+        } else if (chessGame && gameId === chessGame.id) {
+          console.log('▶️ تشغيل لعبة الشطرنج');
           return (
             <ChessArena
               sessionId={currentGameSession.id}
@@ -339,7 +361,8 @@ const Games = () => {
               }}
             />
           );
-        } else if (selectedGame.name === 'دومينو') {
+        } else if (dominoGame && gameId === dominoGame.id) {
+          console.log('▶️ تشغيل لعبة الدومينو');
           const DominoArena = React.lazy(() => 
             import('@/components/games/domino-game/domino-arena').then(m => ({ default: m.DominoArena }))
           );
@@ -367,7 +390,8 @@ const Games = () => {
               />
             </React.Suspense>
           );
-        } else if (selectedGame.name === 'لودو') {
+        } else if (ludoGame && gameId === ludoGame.id) {
+          console.log('▶️ تشغيل لعبة لودو');
           const LudoArena = React.lazy(() => 
             import('@/components/games/ludo-game/ludo-arena').then(m => ({ default: m.LudoArena }))
           );
@@ -385,7 +409,14 @@ const Games = () => {
           );
         }
         
-        return null;
+        console.error('❌ لعبة غير معروفة:', selectedGame.name, selectedGame.id);
+        return (
+          <div className="flex items-center justify-center min-h-screen">
+            <Card className="p-6">
+              <p>خطأ: اللعبة غير معروفة</p>
+            </Card>
+          </div>
+        );
       
       default:
         return (
