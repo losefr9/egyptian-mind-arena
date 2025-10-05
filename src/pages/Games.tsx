@@ -315,13 +315,13 @@ const Games = () => {
           );
         }
 
+        // استخدام game_id من الجلسة مباشرة - المصدر الوحيد للحقيقة
+        const sessionGameId = currentGameSession.game_id;
+        
         console.log('🎮 عرض اللعبة:', selectedGame.name);
         console.log('🆔 معرف اللعبة المحددة:', selectedGame.id);
-        console.log('📋 معرف اللعبة في الجلسة:', currentGameSession.game_id);
-        console.log('✅ تطابق المعرفات:', selectedGame.id === currentGameSession.game_id);
-        
-        // استخدام game_id للمقارنة بدلاً من الأسماء
-        const gameId = selectedGame.id;
+        console.log('📋 معرف اللعبة في الجلسة:', sessionGameId);
+        console.log('✅ تطابق المعرفات:', selectedGame.id === sessionGameId);
         
         // جلب معرفات الألعاب من قاعدة البيانات
         const xoGame = games.find(g => g.name === 'XO Game');
@@ -329,7 +329,7 @@ const Games = () => {
         const dominoGame = games.find(g => g.name === 'دومينو');
         const ludoGame = games.find(g => g.name === 'لودو');
         
-        if (xoGame && gameId === xoGame.id) {
+        if (xoGame && sessionGameId === xoGame.id) {
           console.log('▶️ تشغيل لعبة XO');
           return (
             <XORaceArena
@@ -337,7 +337,7 @@ const Games = () => {
               onExit={handleExitGame}
             />
           );
-        } else if (chessGame && gameId === chessGame.id) {
+        } else if (chessGame && sessionGameId === chessGame.id) {
           console.log('▶️ تشغيل لعبة الشطرنج');
           return (
             <ChessArena
@@ -361,7 +361,7 @@ const Games = () => {
               }}
             />
           );
-        } else if (dominoGame && gameId === dominoGame.id) {
+        } else if (dominoGame && sessionGameId === dominoGame.id) {
           console.log('▶️ تشغيل لعبة الدومينو');
           const DominoArena = React.lazy(() => 
             import('@/components/games/domino-game/domino-arena').then(m => ({ default: m.DominoArena }))
@@ -390,7 +390,7 @@ const Games = () => {
               />
             </React.Suspense>
           );
-        } else if (ludoGame && gameId === ludoGame.id) {
+        } else if (ludoGame && sessionGameId === ludoGame.id) {
           console.log('▶️ تشغيل لعبة لودو');
           const LudoArena = React.lazy(() => 
             import('@/components/games/ludo-game/ludo-arena').then(m => ({ default: m.LudoArena }))
