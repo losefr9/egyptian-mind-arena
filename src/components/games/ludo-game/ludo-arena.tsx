@@ -246,53 +246,90 @@ export const LudoArena: React.FC<LudoArenaProps> = ({
   }
 
   return (
-    <div className="min-h-screen p-4 bg-gradient-to-br from-green-50 to-blue-50">
+    <div className="min-h-screen p-4 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 dark:from-background dark:via-card/20 dark:to-background">
       <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
-          <Button onClick={onExit} variant="outline">
-            <ArrowLeft className="ml-2" />
+        {/* Header - Enhanced */}
+        <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
+          <Button onClick={onExit} variant="outline" className="gap-2 hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-all">
+            <ArrowLeft className="h-4 w-4" />
             الخروج
           </Button>
           
-          <div className="text-center">
-            <h2 className="text-3xl font-bold">لعبة لودو</h2>
-            <p className="text-lg">الرهان: {betAmount} جنيه</p>
+          <div className="text-center bg-white dark:bg-card/50 px-8 py-4 rounded-2xl shadow-lg backdrop-blur-sm border border-primary/20">
+            <h2 className="text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+              🎲 لعبة لودو
+            </h2>
+            <div className="flex items-center justify-center gap-2 mt-2">
+              <Trophy className="h-5 w-5 text-primary" />
+              <p className="text-lg font-semibold">الرهان: {betAmount} جنيه</p>
+            </div>
           </div>
           
-          <div className="w-24" />
+          <div className="w-24 hidden md:block" />
         </div>
 
         <div className="grid lg:grid-cols-[1fr_auto] gap-8">
-          <LudoBoard
-            player1Pieces={match.player1_pieces}
-            player2Pieces={match.player2_pieces}
-            selectedPiece={selectedPiece}
-            onPieceClick={handlePieceClick}
-            currentPlayerId={match.current_turn_player_id}
-            player1Id={player1Id}
-          />
+          {/* Enhanced Board */}
+          <div className="relative">
+            <div className="absolute -inset-2 bg-gradient-to-r from-primary/10 to-accent/10 rounded-3xl blur-xl" />
+            <div className="relative">
+              <LudoBoard
+                player1Pieces={match.player1_pieces}
+                player2Pieces={match.player2_pieces}
+                selectedPiece={selectedPiece}
+                onPieceClick={handlePieceClick}
+                currentPlayerId={match.current_turn_player_id}
+                player1Id={player1Id}
+              />
+            </div>
+          </div>
 
-          <div className="flex flex-col items-center gap-6 bg-white p-8 rounded-3xl shadow-xl">
-            <h3 className="text-2xl font-bold">النرد</h3>
-            
-            <LudoDice
-              value={match.last_dice_roll}
-              onRoll={handleRollDice}
-              canRoll={
-                match.current_turn_player_id === currentUserId &&
-                (match.can_roll_again || match.last_dice_roll === 0)
-              }
-              isRolling={isRolling}
-            />
-
-            <div className="text-center mt-4">
-              <p className="text-sm text-gray-600">
-                رميات 6 متتالية: {match.consecutive_sixes}/3
+          {/* Dice Panel - Enhanced */}
+          <div className="flex flex-col items-center gap-6 bg-white dark:bg-card/50 p-8 rounded-3xl shadow-2xl backdrop-blur-sm border border-primary/10">
+            <div className="text-center">
+              <h3 className="text-2xl font-bold mb-2 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                🎲 النرد
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {match.current_turn_player_id === currentUserId ? 'دورك!' : 'دور الخصم'}
               </p>
+            </div>
+            
+            <div className="relative">
+              {match.current_turn_player_id === currentUserId && (
+                <div className="absolute -inset-3 bg-gradient-to-r from-primary/30 to-accent/30 rounded-2xl blur-lg animate-pulse" />
+              )}
+              <div className="relative">
+                <LudoDice
+                  value={match.last_dice_roll}
+                  onRoll={handleRollDice}
+                  canRoll={
+                    match.current_turn_player_id === currentUserId &&
+                    (match.can_roll_again || match.last_dice_roll === 0)
+                  }
+                  isRolling={isRolling}
+                />
+              </div>
+            </div>
+
+            {/* Stats Panel */}
+            <div className="w-full space-y-4 mt-4">
+              <div className="bg-gradient-to-br from-primary/10 to-accent/5 p-4 rounded-xl border border-primary/20">
+                <p className="text-sm font-semibold text-center mb-2">إحصائيات النرد</p>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">رميات 6 متتالية:</span>
+                  <span className={`font-bold ${match.consecutive_sixes >= 2 ? 'text-destructive' : 'text-primary'}`}>
+                    {match.consecutive_sixes}/3
+                  </span>
+                </div>
+              </div>
+              
               {match.consecutive_sixes >= 2 && (
-                <p className="text-xs text-red-600 mt-1">
-                  ⚠️ احذر! رمية 6 أخرى ستخسرك الدور
-                </p>
+                <div className="bg-destructive/10 border border-destructive/30 p-3 rounded-lg animate-pulse">
+                  <p className="text-xs text-destructive text-center font-semibold">
+                    ⚠️ احذر! رمية 6 أخرى ستخسرك الدور
+                  </p>
+                </div>
               )}
             </div>
           </div>

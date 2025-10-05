@@ -209,36 +209,51 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-background/80 p-4">
-      <div className="max-w-6xl mx-auto space-y-4">
-        {/* Header */}
-        <Card className="p-4 bg-card/50 backdrop-blur border-border/50">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Trophy className="h-5 w-5 text-primary" />
-              <span className="font-bold text-lg">الرهان: {betAmount} جنيه</span>
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-card/50 p-4">
+      <div className="max-w-6xl mx-auto space-y-6">
+        {/* Header with improved design */}
+        <Card className="p-6 bg-gradient-to-r from-card/90 to-card/70 backdrop-blur-xl border-primary/20 shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-gradient-to-br from-primary to-primary-glow rounded-xl">
+                <Trophy className="h-6 w-6 text-primary-foreground" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">الجائزة الكبرى</p>
+                <span className="font-bold text-2xl bg-gradient-to-r from-primary to-primary-glow bg-clip-text text-transparent">
+                  {betAmount * 2} جنيه
+                </span>
+              </div>
             </div>
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Users className="h-4 w-4" />
-              <span className="text-sm">مباراة شطرنج</span>
+            <div className="flex items-center gap-3 px-4 py-2 bg-background/50 rounded-lg">
+              <Users className="h-5 w-5 text-primary" />
+              <span className="font-semibold">مباراة شطرنج</span>
             </div>
           </div>
         </Card>
 
         {/* Game Board */}
-        <div className="grid md:grid-cols-[1fr_400px] gap-4">
+        <div className="grid lg:grid-cols-[1fr_380px] gap-6">
           {/* Main Board */}
           <div className="space-y-4">
-            {/* Player 2 Info */}
-            <Card className="p-4 bg-card/50 backdrop-blur border-border/50">
+            {/* Player 2 Info - Enhanced */}
+            <Card className="p-4 bg-gradient-to-r from-card/95 to-card/80 backdrop-blur-xl border-border/50 hover:border-primary/30 transition-all duration-300">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-secondary to-accent flex items-center justify-center text-white font-bold">
-                    {player2Name[0]}
+                <div className="flex items-center gap-4">
+                  <div className="relative">
+                    <div className="h-12 w-12 rounded-full bg-gradient-to-br from-secondary via-secondary/80 to-accent flex items-center justify-center text-white font-bold text-lg shadow-lg ring-2 ring-background/50">
+                      {player2Name[0]}
+                    </div>
+                    {currentTurn === player2Id && (
+                      <div className="absolute -top-1 -right-1 h-4 w-4 bg-success rounded-full animate-pulse ring-2 ring-background" />
+                    )}
                   </div>
                   <div>
-                    <div className="font-bold">{player2Name}</div>
-                    <div className="text-xs text-muted-foreground">القطع السوداء</div>
+                    <div className="font-bold text-lg">{player2Name}</div>
+                    <div className="text-xs text-muted-foreground flex items-center gap-1">
+                      <div className="h-2 w-2 rounded-full bg-foreground/80" />
+                      القطع السوداء
+                    </div>
                   </div>
                 </div>
                 <ChessTimer
@@ -249,24 +264,37 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
               </div>
             </Card>
 
-            {/* Chess Board */}
-            <ChessBoard
-              position={boardState}
-              onMove={handleMove}
-              orientation={myColor}
-              isMyTurn={isMyTurn}
-            />
+            {/* Chess Board with enhanced shadow */}
+            <div className="relative">
+              <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 to-accent/20 rounded-2xl blur-xl" />
+              <div className="relative">
+                <ChessBoard
+                  position={boardState}
+                  onMove={handleMove}
+                  orientation={myColor}
+                  isMyTurn={isMyTurn}
+                />
+              </div>
+            </div>
 
-            {/* Player 1 Info */}
-            <Card className="p-4 bg-card/50 backdrop-blur border-border/50">
+            {/* Player 1 Info - Enhanced */}
+            <Card className="p-4 bg-gradient-to-r from-card/95 to-card/80 backdrop-blur-xl border-border/50 hover:border-primary/30 transition-all duration-300">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-white font-bold">
-                    {player1Name[0]}
+                <div className="flex items-center gap-4">
+                  <div className="relative">
+                    <div className="h-12 w-12 rounded-full bg-gradient-to-br from-primary via-primary/90 to-primary-glow flex items-center justify-center text-primary-foreground font-bold text-lg shadow-lg ring-2 ring-background/50">
+                      {player1Name[0]}
+                    </div>
+                    {currentTurn === player1Id && (
+                      <div className="absolute -top-1 -right-1 h-4 w-4 bg-success rounded-full animate-pulse ring-2 ring-background" />
+                    )}
                   </div>
                   <div>
-                    <div className="font-bold">{player1Name}</div>
-                    <div className="text-xs text-muted-foreground">القطع البيضاء</div>
+                    <div className="font-bold text-lg">{player1Name}</div>
+                    <div className="text-xs text-muted-foreground flex items-center gap-1">
+                      <div className="h-2 w-2 rounded-full bg-foreground/20" />
+                      القطع البيضاء
+                    </div>
                   </div>
                 </div>
                 <ChessTimer
@@ -278,25 +306,37 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
             </Card>
           </div>
 
-          {/* Side Panel */}
+          {/* Side Panel - Enhanced */}
           <div className="space-y-4">
             <CapturedPieces capturedPieces={capturedPieces} />
             
-            {/* Game Status */}
-            <Card className="p-4 bg-card/50 backdrop-blur border-border/50">
-              <h3 className="font-bold mb-3">حالة اللعبة</h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">الدور:</span>
-                  <span className="font-bold text-primary">
-                    {currentTurn === currentUserId ? 'دورك' : 'دور الخصم'}
+            {/* Game Status - Enhanced */}
+            <Card className="p-6 bg-gradient-to-br from-card/95 to-card/80 backdrop-blur-xl border-border/50">
+              <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+                <div className="h-1 w-1 rounded-full bg-primary animate-pulse" />
+                حالة اللعبة
+              </h3>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center p-3 bg-background/50 rounded-lg">
+                  <span className="text-muted-foreground">الدور الحالي:</span>
+                  <span className={`font-bold px-3 py-1 rounded-full ${
+                    currentTurn === currentUserId 
+                      ? 'bg-gradient-to-r from-primary to-primary-glow text-primary-foreground' 
+                      : 'bg-muted text-muted-foreground'
+                  }`}>
+                    {currentTurn === currentUserId ? 'دورك! 🎯' : 'دور الخصم'}
                   </span>
                 </div>
                 {chess.isCheck() && (
-                  <div className="text-center py-2 px-3 bg-destructive/20 text-destructive rounded-lg font-bold">
-                    كش! 👑
+                  <div className="text-center py-3 px-4 bg-gradient-to-r from-destructive/20 to-destructive/10 text-destructive rounded-xl font-bold border border-destructive/30 animate-pulse">
+                    ⚠️ كش! احذر الملك
                   </div>
                 )}
+                <div className="mt-4 p-4 bg-gradient-to-br from-primary/10 to-accent/5 rounded-lg border border-primary/20">
+                  <p className="text-sm text-center">
+                    {isMyTurn ? '🎮 دورك في اللعب' : '⏳ انتظر دور الخصم'}
+                  </p>
+                </div>
               </div>
             </Card>
           </div>

@@ -6,7 +6,7 @@ import { DominoBoard } from './domino-board';
 import { DominoHand } from './domino-hand';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { ArrowLeft, Download } from 'lucide-react';
+import { ArrowLeft, Download, Trophy } from 'lucide-react';
 
 interface DominoArenaProps {
   sessionId: string;
@@ -218,81 +218,137 @@ export const DominoArena: React.FC<DominoArenaProps> = ({
   const canPlaceRight = selectedPiece && canPlacePiece(selectedPiece, 'right');
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-background/80 p-4">
-      <div className="max-w-6xl mx-auto space-y-4">
-        {/* Header */}
-        <Card>
+    <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-card/30 p-4">
+      <div className="max-w-6xl mx-auto space-y-6">
+        {/* Enhanced Header */}
+        <Card className="bg-gradient-to-r from-card/90 via-card/80 to-card/70 backdrop-blur-xl border-primary/20 shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-2xl">لعبة الدومينو</CardTitle>
-              <Badge variant="golden" className="text-lg px-4 py-1">
-                الرهان: {betAmount} ج.م
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-gradient-to-br from-primary to-primary-glow rounded-xl">
+                  <Trophy className="h-6 w-6 text-primary-foreground" />
+                </div>
+                <div>
+                  <CardTitle className="text-2xl bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text">
+                    🎴 لعبة الدومينو
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">تحدي استراتيجي</p>
+                </div>
+              </div>
+              <Badge variant="golden" className="text-lg px-6 py-2 shadow-lg">
+                💰 الرهان: {betAmount} ج.م
               </Badge>
             </div>
           </CardHeader>
         </Card>
 
-        {/* اللاعب الخصم */}
-        <Card className="bg-card/50">
-          <CardContent className="p-4">
+        {/* اللاعب الخصم - Enhanced */}
+        <Card className="bg-gradient-to-r from-card/95 to-card/80 backdrop-blur-xl border-border/50 hover:border-primary/30 transition-all duration-300">
+          <CardContent className="p-5">
             <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold">{isPlayer1 ? player2Name : player1Name}</h3>
-                <p className="text-sm text-muted-foreground">
-                  عدد القطع: {opponentHandCount}
-                </p>
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <div className="h-12 w-12 rounded-full bg-gradient-to-br from-secondary via-secondary/80 to-accent flex items-center justify-center text-white font-bold text-lg shadow-lg ring-2 ring-background/50">
+                    {(isPlayer1 ? player2Name : player1Name)[0]}
+                  </div>
+                  {!isMyTurn && (
+                    <div className="absolute -top-1 -right-1 h-4 w-4 bg-success rounded-full animate-pulse ring-2 ring-background" />
+                  )}
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg">{isPlayer1 ? player2Name : player1Name}</h3>
+                  <p className="text-sm text-muted-foreground flex items-center gap-1">
+                    🎴 عدد القطع: <span className="font-bold text-foreground">{opponentHandCount}</span>
+                  </p>
+                </div>
               </div>
               {!isMyTurn && (
-                <Badge variant="default">دوره الآن</Badge>
+                <Badge variant="default" className="bg-gradient-to-r from-primary to-primary-glow animate-pulse">
+                  ⏳ دوره الآن
+                </Badge>
               )}
             </div>
           </CardContent>
         </Card>
 
-        {/* اللوحة */}
-        <DominoBoard
-          chain={chain}
-          onPlaceLeft={canPlaceLeft ? () => handlePlacePiece('left') : undefined}
-          onPlaceRight={canPlaceRight ? () => handlePlacePiece('right') : undefined}
-          canPlaceLeft={isMyTurn && canPlaceLeft}
-          canPlaceRight={isMyTurn && canPlaceRight}
-          selectedPiece={selectedPiece}
-        />
+        {/* اللوحة - Enhanced with glow effect */}
+        <div className="relative">
+          <div className="absolute -inset-2 bg-gradient-to-r from-primary/10 to-accent/10 rounded-3xl blur-xl" />
+          <div className="relative">
+            <DominoBoard
+              chain={chain}
+              onPlaceLeft={canPlaceLeft ? () => handlePlacePiece('left') : undefined}
+              onPlaceRight={canPlaceRight ? () => handlePlacePiece('right') : undefined}
+              canPlaceLeft={isMyTurn && canPlaceLeft}
+              canPlaceRight={isMyTurn && canPlaceRight}
+              selectedPiece={selectedPiece}
+            />
+          </div>
+        </div>
 
-        {/* معلومات إضافية */}
-        <div className="flex items-center justify-center gap-4">
-          <Badge variant="secondary" className="text-sm px-4 py-2">
-            البونيارد: {boneyardCount} قطعة
-          </Badge>
+        {/* معلومات إضافية - Enhanced */}
+        <div className="flex items-center justify-center gap-4 flex-wrap">
+          <Card className="bg-gradient-to-br from-primary/10 to-accent/5 border-primary/20">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <div className="h-10 w-10 bg-gradient-to-br from-primary to-primary-glow rounded-lg flex items-center justify-center">
+                  <span className="text-primary-foreground font-bold">{boneyardCount}</span>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">البونيارد</p>
+                  <p className="text-sm font-semibold">قطعة متبقية</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
           {isMyTurn && boneyardCount > 0 && (
             <Button
               onClick={handleDrawFromBoneyard}
               variant="outline"
-              size="sm"
+              size="lg"
+              className="gap-2 hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-all"
             >
-              <Download className="h-4 w-4 ml-2" />
+              <Download className="h-5 w-5" />
               سحب من البونيارد
             </Button>
           )}
         </div>
 
-        {/* يد اللاعب */}
-        <Card>
+        {/* يد اللاعب - Enhanced */}
+        <Card className="bg-gradient-to-r from-card/95 to-card/80 backdrop-blur-xl border-border/50">
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>قطعك ({myHand.length})</CardTitle>
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary to-primary-glow flex items-center justify-center text-primary-foreground font-bold shadow-lg">
+                  {(isPlayer1 ? player1Name : player2Name)[0]}
+                </div>
+                <div>
+                  <CardTitle className="text-lg">قطعك ({myHand.length})</CardTitle>
+                  <p className="text-xs text-muted-foreground">اختر قطعة للعب</p>
+                </div>
+              </div>
               {isMyTurn && (
-                <Badge variant="default">دورك الآن</Badge>
+                <Badge variant="default" className="bg-gradient-to-r from-success to-success/80 animate-pulse">
+                  🎮 دورك الآن
+                </Badge>
               )}
             </div>
           </CardHeader>
-          <CardContent>
-            <DominoHand
-              pieces={myHand}
-              onPieceSelect={setSelectedPiece}
-              selectedPiece={selectedPiece}
-              disabled={!isMyTurn}
-            />
+          <CardContent className="p-6">
+            <div className="relative">
+              {isMyTurn && (
+                <div className="absolute -inset-2 bg-gradient-to-r from-success/10 to-primary/10 rounded-xl blur-lg" />
+              )}
+              <div className="relative">
+                <DominoHand
+                  pieces={myHand}
+                  onPieceSelect={setSelectedPiece}
+                  selectedPiece={selectedPiece}
+                  disabled={!isMyTurn}
+                />
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>

@@ -630,27 +630,31 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
   }, [timeLeft, showQuestion, raceMode]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20 p-4">
-      <div className="max-w-6xl mx-auto">
-        <Card className="mb-4 shadow-lg border-primary/20">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between flex-wrap gap-2">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-card/30 p-4">
+      <div className="max-w-6xl mx-auto space-y-6">
+        {/* Enhanced Header */}
+        <Card className="bg-gradient-to-r from-card/90 via-card/80 to-card/70 backdrop-blur-xl border-primary/20 shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between flex-wrap gap-4">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={onExit}
-                className="hover:bg-accent"
+                className="gap-2 hover:bg-primary/10 hover:text-primary transition-all"
               >
-                <ArrowLeft className="w-4 h-4 mr-2" />
+                <ArrowLeft className="w-4 h-4" />
                 خروج
               </Button>
               
-          <div className="flex items-center gap-2">
-                <Badge variant={connectionStatus === 'connected' ? 'default' : 'destructive'}>
+              <div className="flex items-center gap-3 flex-wrap">
+                <Badge 
+                  variant={connectionStatus === 'connected' ? 'default' : 'destructive'}
+                  className={connectionStatus === 'connected' ? 'bg-gradient-to-r from-success to-success/80' : ''}
+                >
                   {connectionStatus === 'connected' ? '🟢 متصل' : '🔴 غير متصل'}
                 </Badge>
                 {savingMove && (
-                  <Badge variant="secondary" className="animate-pulse">
+                  <Badge variant="secondary" className="animate-pulse bg-primary/20">
                     💾 جاري الحفظ...
                   </Badge>
                 )}
@@ -660,91 +664,140 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
 
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/10">
-                <Trophy className="w-5 h-5 text-primary" />
-                <div>
-                  <p className="text-xs text-muted-foreground">الجائزة</p>
-                  <p className="text-lg font-bold">{winnerEarnings.toFixed(2)} ر.س</p>
-                </div>
-              </div>
+              {/* Prize Card */}
+              <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20 hover:scale-105 transition-transform duration-300">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-gradient-to-br from-primary to-primary-glow rounded-lg">
+                      <Trophy className="w-6 h-6 text-primary-foreground" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">الجائزة الكبرى</p>
+                      <p className="text-xl font-bold bg-gradient-to-r from-primary to-primary-glow bg-clip-text text-transparent">
+                        {winnerEarnings.toFixed(2)} ر.س
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-secondary/10">
-                <Users className="w-5 h-5 text-secondary" />
-                <div>
-                  <p className="text-xs text-muted-foreground">اللاعبون</p>
-                  <p className="text-sm font-medium">{player1Username} vs {player2Username}</p>
-                </div>
-              </div>
+              {/* Players Card */}
+              <Card className="bg-gradient-to-br from-secondary/10 to-secondary/5 border-secondary/20 hover:scale-105 transition-transform duration-300">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-gradient-to-br from-secondary to-accent rounded-lg">
+                      <Users className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">المتنافسون</p>
+                      <p className="text-sm font-medium truncate max-w-[150px]">
+                        {player1Username} vs {player2Username}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-accent/10">
-                <Zap className="w-5 h-5 text-accent" />
-                <div>
-                  <p className="text-xs text-muted-foreground">رمزك</p>
-                  <p className="text-2xl font-bold">{playerSymbol}</p>
-                </div>
-              </div>
+              {/* Symbol Card */}
+              <Card className="bg-gradient-to-br from-accent/10 to-accent/5 border-accent/20 hover:scale-105 transition-transform duration-300">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-gradient-to-br from-accent to-accent/80 rounded-lg">
+                      <Zap className="w-6 h-6 text-foreground" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">رمزك</p>
+                      <p className="text-3xl font-bold">{playerSymbol}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </CardContent>
         </Card>
 
+        {/* Math Question - Enhanced */}
         {showQuestion && mathQuestion && (
-          <div className="mb-4">
-            <MathQuestion
-              questionId={mathQuestion.id}
-              question={mathQuestion.question}
-              timeLeft={timeLeft}
-              onAnswer={handleMathAnswer}
-              onTimeUp={handleTimeUp}
-            />
+          <div className="relative">
+            <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 to-accent/20 rounded-2xl blur-xl animate-pulse" />
+            <div className="relative">
+              <MathQuestion
+                questionId={mathQuestion.id}
+                question={mathQuestion.question}
+                timeLeft={timeLeft}
+                onAnswer={handleMathAnswer}
+                onTimeUp={handleTimeUp}
+              />
+            </div>
           </div>
         )}
 
+        {/* Victory/Draw Screen - Enhanced */}
         {(gameStatus === 'won' || gameStatus === 'draw') && (
-          <Card className="mb-4 border-2 border-primary shadow-lg">
-            <CardContent className="p-6 text-center">
+          <Card className="border-2 border-primary shadow-[0_0_50px_rgba(var(--primary),0.3)] bg-gradient-to-br from-card to-card/80 backdrop-blur-xl">
+            <CardContent className="p-8 text-center">
               {gameStatus === 'won' && (
                 <>
-                  <Trophy className="w-16 h-16 mx-auto mb-4 text-primary animate-bounce" />
-                  <h2 className="text-2xl font-bold mb-2">
-                    {winner === user?.id ? 'تهانينا! لقد فزت! 🎉' : 'انتهت اللعبة'}
+                  <div className="relative inline-block mb-6">
+                    <div className="absolute inset-0 bg-gradient-to-r from-primary to-primary-glow rounded-full blur-2xl opacity-50 animate-pulse" />
+                    <Trophy className="w-20 h-20 mx-auto text-primary animate-bounce relative" />
+                  </div>
+                  <h2 className="text-3xl font-bold mb-4 bg-gradient-to-r from-primary via-primary-glow to-accent bg-clip-text text-transparent">
+                    {winner === user?.id ? '🎉 تهانينا! لقد فزت!' : '😔 انتهت اللعبة'}
                   </h2>
-                  <p className="text-muted-foreground">
+                  <p className="text-lg text-muted-foreground mb-6">
                     {winner === user?.id 
-                      ? `حصلت على ${winnerEarnings.toFixed(2)} ر.س`
+                      ? `حصلت على ${winnerEarnings.toFixed(2)} ر.س 💰`
                       : 'حظ أوفر في المرة القادمة'}
                   </p>
                 </>
               )}
               {gameStatus === 'draw' && (
                 <>
-                  <h2 className="text-2xl font-bold mb-2">تعادل! 🤝</h2>
-                  <p className="text-muted-foreground">تم إرجاع الرصيد لكلا اللاعبين</p>
+                  <div className="text-6xl mb-4 animate-bounce">🤝</div>
+                  <h2 className="text-3xl font-bold mb-4">تعادل!</h2>
+                  <p className="text-lg text-muted-foreground mb-6">تم إرجاع الرصيد لكلا اللاعبين</p>
                 </>
               )}
-              <Button onClick={onExit} className="mt-4">
+              <Button 
+                onClick={onExit} 
+                size="lg"
+                className="bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary transition-all shadow-lg"
+              >
+                <ArrowLeft className="mr-2" />
                 العودة للألعاب
               </Button>
             </CardContent>
           </Card>
         )}
 
+        {/* Game Board - Enhanced */}
         <div className="flex flex-col items-center">
-          <XOBoard
-            board={board}
-            onCellClick={handleCellClick}
-            currentPlayer={playerSymbol}
-            disabled={gameStatus !== 'playing' || showQuestion}
-            playerSymbol={playerSymbol}
-            pendingMove={pendingMove}
-            savingMove={savingMove}
-            opponentSolving={opponentSolving}
-            connectionStatus={connectionStatus}
-          />
+          <div className="relative">
+            <div className="absolute -inset-4 bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 rounded-3xl blur-2xl" />
+            <div className="relative game-board-glow">
+              <XOBoard
+                board={board}
+                onCellClick={handleCellClick}
+                currentPlayer={playerSymbol}
+                disabled={gameStatus !== 'playing' || showQuestion}
+                playerSymbol={playerSymbol}
+                pendingMove={pendingMove}
+                savingMove={savingMove}
+                opponentSolving={opponentSolving}
+                connectionStatus={connectionStatus}
+              />
+            </div>
+          </div>
 
           {!showQuestion && gameStatus === 'playing' && (
-            <p className="text-center text-muted-foreground mt-4">
-              اختر مربعاً لبدء السؤال
-            </p>
+            <Card className="mt-6 bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
+              <CardContent className="p-4">
+                <p className="text-center text-foreground font-medium">
+                  🎯 اختر مربعاً لبدء السؤال
+                </p>
+              </CardContent>
+            </Card>
           )}
         </div>
       </div>
