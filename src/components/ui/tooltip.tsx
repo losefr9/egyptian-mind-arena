@@ -1,8 +1,14 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 
-// Simple Tooltip implementation without Radix UI
-// This avoids React context issues
+/**
+ * ⚠️ CUSTOM TOOLTIP IMPLEMENTATION - NO RADIX UI
+ * 
+ * This is a completely custom tooltip implementation that does NOT use @radix-ui/react-tooltip.
+ * We built this to avoid dependency conflicts and React context issues.
+ * 
+ * DO NOT import or use @radix-ui/react-tooltip anywhere in this project.
+ */
 
 interface TooltipProps {
   children: React.ReactNode

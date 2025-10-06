@@ -20,12 +20,15 @@ export default defineConfig(({ mode }) => ({
   },
   optimizeDeps: {
     include: ["react", "react-dom"],
-    exclude: ["@radix-ui/react-tooltip"], // ✅ استبعاد مكتبة Radix Tooltip نهائيًا
-    force: true, // ✅ إجبار Vite على إعادة بناء الكاش بالكامل
+    exclude: ["@radix-ui/react-tooltip"],
+    force: true,
   },
   build: {
     commonjsOptions: {
-      exclude: ["@radix-ui/react-tooltip"], // ✅ لمنع تضمينها في build الإنتاجي
+      exclude: ["@radix-ui/react-tooltip"],
+    },
+    rollupOptions: {
+      external: (id) => id.includes("@radix-ui/react-tooltip"),
     },
   },
 }));
