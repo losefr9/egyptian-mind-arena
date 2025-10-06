@@ -23,8 +23,8 @@ const queryClient = new QueryClient({
 const App = () => (
   <ThemeProvider attribute="class" defaultTheme="dark">
     <QueryClientProvider client={queryClient}>
-      <Toaster />
       <BrowserRouter>
+        <Toaster />
         <MainLayout>
           <Routes>
             <Route path="/" element={<Index />} />
