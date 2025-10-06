@@ -23,29 +23,6 @@ export default defineConfig(({ mode }) => ({
   },
   optimizeDeps: {
     include: ["react", "react-dom"],
-    exclude: ["@radix-ui/react-tooltip"],
-    force: true,
-    esbuildOptions: {
-      plugins: [
-        {
-          name: "exclude-radix-tooltip",
-          setup(build) {
-            build.onResolve({ filter: /@radix-ui\/react-tooltip/ }, () => ({
-              path: "data:text/javascript,export default {}",
-              external: false,
-            }));
-          },
-        },
-      ],
-    },
-  },
-  build: {
-    commonjsOptions: {
-      exclude: ["@radix-ui/react-tooltip"],
-    },
-    rollupOptions: {
-      external: (id) => id.includes("@radix-ui/react-tooltip"),
-    },
   },
   clearScreen: false,
 }));
