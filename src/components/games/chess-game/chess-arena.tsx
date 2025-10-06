@@ -266,7 +266,7 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
 
             {/* Chess Board with enhanced shadow */}
             <div className="relative">
-              <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 to-accent/20 rounded-2xl blur-xl" />
+              <div className="absolute -inset-2 bg-gradient-to-r from-primary/20 via-accent/20 to-primary/20 rounded-3xl blur-2xl animate-pulse" />
               <div className="relative">
                 <ChessBoard
                   position={boardState}

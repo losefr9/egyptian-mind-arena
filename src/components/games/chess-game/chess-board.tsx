@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 
 interface ChessBoardProps {
-  position: string; // FEN notation
+  position: string;
   onMove: (from: string, to: string) => Promise<boolean>;
   orientation: 'white' | 'black';
   isMyTurn: boolean;
@@ -25,7 +25,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
   const parseFEN = (fen: string) => {
     const board: (string | null)[][] = Array(8).fill(null).map(() => Array(8).fill(null));
     const rows = fen.split(' ')[0].split('/');
-    
+
     rows.forEach((row, i) => {
       let col = 0;
       for (const char of row) {
@@ -39,7 +39,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
         }
       }
     });
-    
+
     return board;
   };
 
@@ -77,9 +77,9 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
   };
 
   return (
-    <Card className="p-4 bg-card/50 backdrop-blur border-border/50">
+    <Card className="p-4 bg-gradient-to-br from-card/90 to-card/70 backdrop-blur-xl border-primary/20 shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
       <div className="aspect-square w-full max-w-[600px] mx-auto">
-        <div className="grid grid-cols-8 gap-0 h-full border-2 border-border rounded-lg overflow-hidden">
+        <div className="grid grid-cols-8 gap-0 h-full border-4 border-primary/30 rounded-xl overflow-hidden shadow-2xl">
           {ranks.map((rank, row) =>
             files.map((file, col) => {
               const squareName = getSquareName(row, col);
@@ -94,34 +94,63 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
                   onClick={() => handleSquareClick(row, col)}
                   disabled={!isMyTurn}
                   className={`
-                    aspect-square relative flex items-center justify-center text-4xl sm:text-5xl
-                    transition-all duration-200
-                    ${isLight ? 'bg-accent/20' : 'bg-secondary/30'}
-                    ${isSelected ? 'ring-4 ring-primary ring-inset' : ''}
-                    ${isHighlighted ? 'bg-primary/20' : ''}
-                    ${isMyTurn ? 'hover:bg-primary/10 cursor-pointer' : 'cursor-not-allowed opacity-60'}
+                    aspect-square relative flex items-center justify-center text-4xl sm:text-5xl lg:text-6xl
+                    transition-all duration-300 ease-out
+                    ${
+                      isLight
+                        ? 'bg-gradient-to-br from-amber-100 to-amber-50 dark:from-amber-900/40 dark:to-amber-800/30'
+                        : 'bg-gradient-to-br from-amber-800 to-amber-700 dark:from-amber-950 dark:to-amber-900'
+                    }
+                    ${
+                      isSelected
+                        ? 'ring-4 ring-primary ring-inset shadow-[inset_0_0_20px_rgba(var(--primary),0.5)] scale-95'
+                        : ''
+                    }
+                    ${
+                      isHighlighted
+                        ? 'bg-primary/30 shadow-[inset_0_0_15px_rgba(var(--primary),0.4)]'
+                        : ''
+                    }
+                    ${
+                      isMyTurn
+                        ? 'hover:bg-primary/20 hover:shadow-[inset_0_0_10px_rgba(var(--primary),0.3)] cursor-pointer active:scale-95'
+                        : 'cursor-not-allowed opacity-70'
+                    }
                   `}
                 >
                   {piece && (
-                    <span className={`
-                      select-none transition-transform duration-200
-                      ${isSelected ? 'scale-110' : 'hover:scale-105'}
-                      ${piece.startsWith('w') ? 'text-foreground' : 'text-foreground/90'}
-                    `}>
+                    <span
+                      className={`
+                      select-none transition-all duration-300 ease-out
+                      ${isSelected ? 'scale-110 drop-shadow-[0_4px_8px_rgba(0,0,0,0.5)]' : 'hover:scale-105'}
+                      ${
+                        piece.startsWith('w')
+                          ? 'text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] filter brightness-110'
+                          : 'text-gray-900 drop-shadow-[0_2px_4px_rgba(255,255,255,0.3)]'
+                      }
+                    `}
+                    >
                       {PIECE_UNICODE[piece as keyof typeof PIECE_UNICODE]}
                     </span>
                   )}
-                  
+
                   {/* Square coordinates */}
                   {col === 0 && (
-                    <span className="absolute top-1 left-1 text-[10px] font-bold text-muted-foreground/50">
+                    <span className="absolute top-1 left-1 text-[10px] font-bold text-foreground/60 drop-shadow-sm">
                       {rank}
                     </span>
                   )}
                   {row === 7 && (
-                    <span className="absolute bottom-1 right-1 text-[10px] font-bold text-muted-foreground/50">
+                    <span className="absolute bottom-1 right-1 text-[10px] font-bold text-foreground/60 drop-shadow-sm">
                       {file}
                     </span>
+                  )}
+
+                  {/* Highlight effect for possible moves */}
+                  {isHighlighted && !isSelected && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="w-3 h-3 rounded-full bg-primary/50 animate-pulse" />
+                    </div>
                   )}
                 </button>
               );
@@ -132,8 +161,11 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
 
       {/* Turn Indicator */}
       {isMyTurn && (
-        <div className="mt-4 text-center py-2 bg-primary/20 rounded-lg">
-          <span className="font-bold text-primary">دورك - اختر قطعة للحركة</span>
+        <div className="mt-4 text-center py-3 bg-gradient-to-r from-primary/20 via-primary/30 to-primary/20 rounded-xl border border-primary/40 animate-pulse">
+          <span className="font-bold text-primary text-lg flex items-center justify-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+            دورك - اختر قطعة للحركة
+          </span>
         </div>
       )}
     </Card>
