@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,9 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
 const Signup = () => {
+  const [searchParams] = useSearchParams();
+  const referralCode = searchParams.get('ref');
+  
   const [formData, setFormData] = useState({
     playerName: '',
     username: '',
@@ -22,6 +25,15 @@ const Signup = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (referralCode) {
+      toast({
+        title: "رابط إحالة",
+        description: "سيتم تسجيلك عبر رابط الإحالة المقدم",
+      });
+    }
+  }, [referralCode]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -98,6 +110,26 @@ const Signup = () => {
                   username: formData.username
                 })
                 .eq('id', authData.user!.id);
+              
+              // إذا كان هناك كود إحالة، قم بتسجيله
+              if (referralCode) {
+                try {
+                  const { data: result } = await supabase.rpc('register_with_referral', {
+                    p_user_id: authData.user!.id,
+                    p_referral_code: referralCode
+                  });
+                  
+                  const resultData = result as { success?: boolean; message?: string };
+                  if (resultData && resultData.success) {
+                    toast({
+                      title: "تم التسجيل عبر الإحالة",
+                      description: "تم ربط حسابك بالمُحيل بنجاح",
+                    });
+                  }
+                } catch (refError) {
+                  console.error('Error registering referral:', refError);
+                }
+              }
             }
           } catch (error) {
             console.error('Error updating profile:', error);

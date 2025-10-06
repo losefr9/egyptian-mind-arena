@@ -20,8 +20,9 @@ import { PaymentGateways } from '@/components/admin/payment-gateways';
 import { Statistics } from '@/components/admin/statistics';
 import { PlatformEarnings } from '@/components/admin/platform-earnings';
 import { Notifications } from '@/components/admin/notifications';
+import { ReferralsManagement } from '@/components/admin/referrals-management';
 
-type AdminSection = 'deposits' | 'withdrawals' | 'users' | 'gateways' | 'statistics' | 'earnings' | 'notifications';
+type AdminSection = 'deposits' | 'withdrawals' | 'users' | 'gateways' | 'statistics' | 'earnings' | 'notifications' | 'referrals';
 
 const AdminContent = () => {
   const [activeSection, setActiveSection] = useState<AdminSection>('statistics');
@@ -75,6 +76,13 @@ const AdminContent = () => {
       icon: MessageSquare,
       color: 'text-destructive',
       description: 'إرسال الرسائل والإعلانات'
+    },
+    {
+      id: 'referrals' as AdminSection,
+      title: 'الإحالات',
+      icon: Users,
+      color: 'text-blue-600',
+      description: 'إدارة نظام الإحالات والأرباح'
     }
   ];
 
@@ -94,6 +102,8 @@ const AdminContent = () => {
         return <PaymentGateways />;
       case 'notifications':
         return <Notifications />;
+      case 'referrals':
+        return <ReferralsManagement />;
       default:
         return <Statistics />;
     }

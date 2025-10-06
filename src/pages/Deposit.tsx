@@ -211,6 +211,15 @@ const Deposit = () => {
 
       console.log('Deposit request created successfully:', data);
 
+      // تحديث حالة الإيداع الأول للإحالة
+      try {
+        await supabase.rpc('mark_first_deposit', {
+          p_user_id: user.id
+        });
+      } catch (refError) {
+        console.log('Note: Referral update skipped (no referral)', refError);
+      }
+
       toast({
         title: "تم إرسال طلب الإيداع",
         description: "سيتم مراجعة طلبك ومعالجته في أقرب وقت ممكن"

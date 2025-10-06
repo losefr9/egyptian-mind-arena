@@ -10,7 +10,8 @@ import {
   LogOut,
   Trash2,
   Mail,
-  Shield
+  Shield,
+  Users
 } from 'lucide-react';
 import { InstallAppButton } from './install-app-button';
 import {
@@ -115,6 +116,16 @@ export const Navbar = ({ isLoggedIn = false, username = "مستخدم", balance 
               >
                 <CreditCard size={16} />
                 السحب
+              </Button>
+              
+              <Button
+                variant={location.pathname === '/referral' ? 'golden' : 'ghost'}
+                size="sm"
+                onClick={() => handlePageChange('referral')}
+                className="flex items-center gap-2"
+              >
+                <Users size={16} />
+                الإحالة
               </Button>
             </div>
           </div>
