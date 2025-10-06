@@ -18,7 +18,8 @@ const Signup = () => {
     phone: '',
     email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    referralCode: ''
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -28,9 +29,10 @@ const Signup = () => {
 
   useEffect(() => {
     if (referralCode) {
+      setFormData(prev => ({ ...prev, referralCode }));
       toast({
         title: "رابط إحالة",
-        description: "سيتم تسجيلك عبر رابط الإحالة المقدم",
+        description: `لديك كود إحالة: ${referralCode}`,
       });
     }
   }, [referralCode]);
@@ -112,11 +114,12 @@ const Signup = () => {
                 .eq('id', authData.user!.id);
               
               // إذا كان هناك كود إحالة، قم بتسجيله
-              if (referralCode) {
+              const finalRefCode = formData.referralCode || referralCode;
+              if (finalRefCode) {
                 try {
                   const { data: result } = await supabase.rpc('register_with_referral', {
                     p_user_id: authData.user!.id,
-                    p_referral_code: referralCode
+                    p_referral_code: finalRefCode
                   });
                   
                   const resultData = result as { success?: boolean; message?: string };
@@ -291,6 +294,25 @@ const Signup = () => {
                     {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
                 </div>
+              </div>
+
+              {/* Referral Code */}
+              <div className="space-y-2">
+                <Label htmlFor="referralCode" className="text-sm font-medium">
+                  كود الإحالة (اختياري)
+                </Label>
+                <Input
+                  id="referralCode"
+                  name="referralCode"
+                  type="text"
+                  value={formData.referralCode}
+                  onChange={handleInputChange}
+                  placeholder="أدخل كود الإحالة إن وجد"
+                  className="h-12 text-center"
+                />
+                <p className="text-xs text-muted-foreground text-center">
+                  إذا كان لديك كود إحالة من صديق، أدخله هنا
+                </p>
               </div>
 
               {/* Submit Button */}
