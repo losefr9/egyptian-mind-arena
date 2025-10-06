@@ -489,6 +489,8 @@ export type Database = {
           email: string
           id: string
           losses: number | null
+          referral_code: string | null
+          referred_by: string | null
           role: string
           updated_at: string
           username: string | null
@@ -500,6 +502,8 @@ export type Database = {
           email: string
           id: string
           losses?: number | null
+          referral_code?: string | null
+          referred_by?: string | null
           role?: string
           updated_at?: string
           username?: string | null
@@ -511,12 +515,128 @@ export type Database = {
           email?: string
           id?: string
           losses?: number | null
+          referral_code?: string | null
+          referred_by?: string | null
           role?: string
           updated_at?: string
           username?: string | null
           wins?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_referred_by_fkey"
+            columns: ["referred_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referral_earnings: {
+        Row: {
+          created_at: string | null
+          earning_amount: number
+          game_session_id: string | null
+          id: string
+          platform_fee_amount: number
+          referral_id: string
+          referral_percentage: number | null
+          referrer_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          earning_amount?: number
+          game_session_id?: string | null
+          id?: string
+          platform_fee_amount?: number
+          referral_id: string
+          referral_percentage?: number | null
+          referrer_id: string
+        }
+        Update: {
+          created_at?: string | null
+          earning_amount?: number
+          game_session_id?: string | null
+          id?: string
+          platform_fee_amount?: number
+          referral_id?: string
+          referral_percentage?: number | null
+          referrer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_earnings_game_session_id_fkey"
+            columns: ["game_session_id"]
+            isOneToOne: false
+            referencedRelation: "game_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_earnings_referral_id_fkey"
+            columns: ["referral_id"]
+            isOneToOne: false
+            referencedRelation: "referrals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_earnings_referrer_id_fkey"
+            columns: ["referrer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referrals: {
+        Row: {
+          created_at: string | null
+          first_deposit_at: string | null
+          has_deposited: boolean | null
+          id: string
+          referral_code: string
+          referred_id: string
+          referrer_id: string
+          total_earnings: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          first_deposit_at?: string | null
+          has_deposited?: boolean | null
+          id?: string
+          referral_code: string
+          referred_id: string
+          referrer_id: string
+          total_earnings?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          first_deposit_at?: string | null
+          has_deposited?: boolean | null
+          id?: string
+          referral_code?: string
+          referred_id?: string
+          referrer_id?: string
+          total_earnings?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referrals_referred_id_fkey"
+            columns: ["referred_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referrals_referrer_id_fkey"
+            columns: ["referrer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_activity_log: {
         Row: {
@@ -713,6 +833,10 @@ export type Database = {
         Args: { session_id: string; winner_user_id: string }
         Returns: boolean
       }
+      calculate_match_earnings_with_referral: {
+        Args: { session_id: string; winner_user_id: string }
+        Returns: boolean
+      }
       cancel_matchmaking: {
         Args: { p_bet_amount: number; p_game_id: string; p_user_id: string }
         Returns: Json
@@ -770,6 +894,10 @@ export type Database = {
           id: string
           question: string
         }[]
+      }
+      generate_referral_code: {
+        Args: Record<PropertyKey, never>
+        Returns: string
       }
       get_math_question_by_id: {
         Args: { question_id: string }
@@ -855,6 +983,10 @@ export type Database = {
         }
         Returns: Json
       }
+      mark_first_deposit: {
+        Args: { p_user_id: string }
+        Returns: undefined
+      }
       move_ludo_piece: {
         Args: {
           p_dice_roll: number
@@ -862,6 +994,10 @@ export type Database = {
           p_piece_id: string
           p_player_id: string
         }
+        Returns: Json
+      }
+      register_with_referral: {
+        Args: { p_referral_code: string; p_user_id: string }
         Returns: Json
       }
       reserve_cell: {
