@@ -19,7 +19,7 @@ export const MatchPreparationScreen: React.FC<MatchPreparationScreenProps> = ({
   gameName,
   onComplete
 }) => {
-  const [countdown, setCountdown] = useState(5);
+  const [countdown, setCountdown] = useState(6);
   const prizeAmount = (betAmount * 2 * 0.9).toFixed(2);
 
   useEffect(() => {
@@ -135,8 +135,8 @@ export const MatchPreparationScreen: React.FC<MatchPreparationScreenProps> = ({
 
           {/* شريط التقدم */}
           <div className="h-2 bg-primary/20 rounded-full overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-primary to-accent transition-all duration-[5000ms] ease-linear" 
-                 style={{ width: `${((5 - countdown) / 5) * 100}%` }} />
+            <div className="h-full bg-gradient-to-r from-primary to-accent transition-all duration-[6000ms] ease-linear" 
+                 style={{ width: `${((6 - countdown) / 6) * 100}%` }} />
           </div>
         </CardContent>
       </Card>

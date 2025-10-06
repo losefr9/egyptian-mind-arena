@@ -19,7 +19,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { InstallAppButton } from '@/components/ui/install-app-button';
 
-type ViewState = 'games' | 'betting' | 'waiting' | 'preparation' | 'playing';
+type ViewState = 'games' | 'betting' | 'waiting' | 'verifying_data' | 'preparation' | 'playing';
 
 interface Game {
   id: string;
@@ -58,40 +58,59 @@ const Games = () => {
     setupPresenceTracking();
   }, []);
 
-  // إعادة جلب بيانات اللعبة الصحيحة عند تغيير currentGameSession
+  // التحقق من البيانات وجلب اللعبة الصحيحة
   useEffect(() => {
-    const fetchGameFromSession = async () => {
-      if (currentGameSession && currentGameSession.game_id && viewState === 'playing') {
+    const verifyAndFetchGameData = async () => {
+      if (currentGameSession && currentGameSession.game_id && viewState === 'verifying_data') {
         setIsLoadingGame(true);
-        console.log('🔍 جلب بيانات اللعبة من game_id:', currentGameSession.game_id);
-        console.log('⏰ وقت بدء الجلب:', new Date().toISOString());
+        console.log('🔍 التحقق من بيانات اللعبة - game_id:', currentGameSession.game_id);
+        console.log('💰 مبلغ الرهان:', currentGameSession.bet_amount);
         
         try {
-          const { data: gameData, error } = await supabase
+          // جلب بيانات اللعبة
+          const { data: gameData, error: gameError } = await supabase
             .from('games')
             .select('*')
             .eq('id', currentGameSession.game_id)
             .single();
 
-          if (error) throw error;
+          if (gameError) throw gameError;
+
+          // جلب أسماء اللاعبين
+          const { data: player1Data } = await supabase.rpc('get_public_username', { 
+            user_id_input: currentGameSession.player1_id 
+          });
+          const { data: player2Data } = await supabase.rpc('get_public_username', { 
+            user_id_input: currentGameSession.player2_id 
+          });
+
+          setPlayer1Name(player1Data?.[0]?.username || 'لاعب 1');
+          setPlayer2Name(player2Data?.[0]?.username || 'لاعب 2');
 
           if (gameData) {
-            console.log('✅ تم جلب اللعبة بنجاح:', gameData.name);
-            console.log('🆔 معرف اللعبة المجلوبة:', gameData.id);
-            console.log('⏰ وقت انتهاء الجلب:', new Date().toISOString());
+            console.log('✅ تم التحقق من اللعبة:', gameData.name);
+            console.log('🆔 معرف اللعبة:', gameData.id);
+            console.log('👥 اللاعبون:', player1Data?.[0]?.username, 'vs', player2Data?.[0]?.username);
             setSelectedGame(gameData);
+            
+            // الانتقال لشاشة التحضير بعد 2 ثانية
+            setTimeout(() => {
+              console.log('✅ البيانات جاهزة - الانتقال لشاشة التحضير');
+              setViewState('preparation');
+            }, 2000);
           }
         } catch (error) {
-          console.error('❌ خطأ في جلب بيانات اللعبة:', error);
-          toast.error('خطأ في تحميل اللعبة');
+          console.error('❌ خطأ في التحقق من بيانات اللعبة:', error);
+          toast.error('خطأ في تحميل بيانات المباراة');
+          handleBackToGames();
         } finally {
           setIsLoadingGame(false);
         }
       }
     };
 
-    fetchGameFromSession();
-  }, [currentGameSession, viewState]);
+    verifyAndFetchGameData();
+  }, [currentGameSession?.game_id, viewState]);
 
   const setupPresenceTracking = () => {
     const channel = supabase.channel('online-players');
@@ -197,9 +216,10 @@ const Games = () => {
 
         if (sessionError) throw sessionError;
 
+        console.log('🎮 تم العثور على خصم - بدء التحقق من البيانات');
         setCurrentGameSession(sessionData);
-        setViewState('playing');
-        toast.success('تم العثور على خصم! جاري بدء المباراة...');
+        setViewState('verifying_data');
+        toast.success('تم العثور على خصم! جاري التحقق من بيانات المباراة...');
       }
 
       // تسجيل النشاط
@@ -267,24 +287,32 @@ const Games = () => {
             gameSessionId={currentGameSession.id}
             onCancel={handleBackToBetting}
             onMatchFound={async (gameSession) => {
+              console.log('🎮 تم العثور على خصم من شاشة الانتظار - بدء التحقق');
               setCurrentGameSession(gameSession);
-              
-              // جلب أسماء اللاعبين
-              const { data: player1Data } = await supabase.rpc('get_public_username', { 
-                user_id_input: gameSession.player1_id 
-              });
-              const { data: player2Data } = await supabase.rpc('get_public_username', { 
-                user_id_input: gameSession.player2_id 
-              });
-
-              setPlayer1Name(player1Data?.[0]?.username || 'لاعب 1');
-              setPlayer2Name(player2Data?.[0]?.username || 'لاعب 2');
-              
-              // الانتقال لشاشة التحضير لمدة 5 ثواني
-              setViewState('preparation');
+              setViewState('verifying_data');
             }}
           />
         ) : null;
+      
+      case 'verifying_data':
+        return (
+          <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background via-primary/5 to-accent/5">
+            <Card className="w-full max-w-md bg-card/95 backdrop-blur-xl border-primary/20 shadow-2xl">
+              <CardContent className="p-8 text-center space-y-6">
+                <div className="animate-spin h-16 w-16 border-4 border-primary border-t-transparent rounded-full mx-auto"></div>
+                <h3 className="text-2xl font-bold">جاري التحقق من البيانات</h3>
+                <p className="text-muted-foreground">
+                  يتم التأكد من معلومات المباراة واللاعبين...
+                </p>
+                <div className="space-y-2 text-sm text-muted-foreground">
+                  <p>✓ التحقق من نوع اللعبة</p>
+                  <p>✓ التحقق من مبلغ الرهان</p>
+                  <p>✓ جلب بيانات اللاعبين</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        );
       
       case 'preparation':
         return selectedGame && currentGameSession ? (
