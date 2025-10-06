@@ -8,6 +8,9 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    fs: {
+      strict: false,
+    },
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
@@ -22,6 +25,19 @@ export default defineConfig(({ mode }) => ({
     include: ["react", "react-dom"],
     exclude: ["@radix-ui/react-tooltip"],
     force: true,
+    esbuildOptions: {
+      plugins: [
+        {
+          name: "exclude-radix-tooltip",
+          setup(build) {
+            build.onResolve({ filter: /@radix-ui\/react-tooltip/ }, () => ({
+              path: "data:text/javascript,export default {}",
+              external: false,
+            }));
+          },
+        },
+      ],
+    },
   },
   build: {
     commonjsOptions: {
@@ -31,4 +47,5 @@ export default defineConfig(({ mode }) => ({
       external: (id) => id.includes("@radix-ui/react-tooltip"),
     },
   },
+  clearScreen: false,
 }));
