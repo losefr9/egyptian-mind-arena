@@ -318,18 +318,11 @@ const Games = () => {
         // استخدام game_id من الجلسة مباشرة - المصدر الوحيد للحقيقة
         const sessionGameId = currentGameSession.game_id;
         
-        console.log('🎮 عرض اللعبة:', selectedGame.name);
-        console.log('🆔 معرف اللعبة المحددة:', selectedGame.id);
-        console.log('📋 معرف اللعبة في الجلسة:', sessionGameId);
-        console.log('✅ تطابق المعرفات:', selectedGame.id === sessionGameId);
+        console.log('🆔 معرف اللعبة من الجلسة:', sessionGameId);
+        console.log('🎮 اسم اللعبة المحددة:', selectedGame?.name);
         
-        // جلب معرفات الألعاب من قاعدة البيانات
-        const xoGame = games.find(g => g.name === 'XO Game');
-        const chessGame = games.find(g => g.name === 'شطرنج' || g.name === 'Chess');
-        const dominoGame = games.find(g => g.name === 'دومينو');
-        const ludoGame = games.find(g => g.name === 'لودو');
-        
-        if (xoGame && sessionGameId === xoGame.id) {
+        // مقارنة مباشرة مع معرف اللعبة من الجلسة - بدون الاعتماد على قائمة games
+        if (sessionGameId === selectedGame?.id) {
           console.log('▶️ تشغيل لعبة XO');
           return (
             <XORaceArena
@@ -337,31 +330,44 @@ const Games = () => {
               onExit={handleExitGame}
             />
           );
-        } else if (chessGame && sessionGameId === chessGame.id) {
+        } else if (selectedGame?.name === 'شطرنج' || selectedGame?.name === 'Chess') {
           console.log('▶️ تشغيل لعبة الشطرنج');
-          return (
-            <ChessArena
-              sessionId={currentGameSession.id}
-              currentUserId={user!.id}
-              player1Id={currentGameSession.player1_id}
-              player2Id={currentGameSession.player2_id}
-              betAmount={currentGameSession.bet_amount}
-              onGameEnd={async (winnerId) => {
-                if (winnerId) {
-                  await supabase.rpc('calculate_match_earnings', {
-                    session_id: currentGameSession.id,
-                    winner_user_id: winnerId
-                  });
-                } else {
-                  await supabase.rpc('handle_draw_match', {
-                    session_id: currentGameSession.id
-                  });
-                }
-                handleExitGame();
-              }}
-            />
+          const ChessArena = React.lazy(() => 
+            import('@/components/games/chess-game/chess-arena').then(m => ({ default: m.ChessArena }))
           );
-        } else if (dominoGame && sessionGameId === dominoGame.id) {
+          
+          return (
+            <React.Suspense fallback={
+              <div className="flex items-center justify-center min-h-screen">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                  <p className="text-lg">جاري تحميل لعبة الشطرنج...</p>
+                </div>
+              </div>
+            }>
+              <ChessArena
+                sessionId={currentGameSession.id}
+                currentUserId={user!.id}
+                player1Id={currentGameSession.player1_id}
+                player2Id={currentGameSession.player2_id}
+                betAmount={currentGameSession.bet_amount}
+                onGameEnd={async (winnerId) => {
+                  if (winnerId) {
+                    await supabase.rpc('calculate_match_earnings', {
+                      session_id: currentGameSession.id,
+                      winner_user_id: winnerId
+                    });
+                  } else {
+                    await supabase.rpc('handle_draw_match', {
+                      session_id: currentGameSession.id
+                    });
+                  }
+                  handleExitGame();
+                }}
+              />
+            </React.Suspense>
+          );
+        } else if (selectedGame?.name === 'دومينو' || selectedGame?.name === 'Domino') {
           console.log('▶️ تشغيل لعبة الدومينو');
           const DominoArena = React.lazy(() => 
             import('@/components/games/domino-game/domino-arena').then(m => ({ default: m.DominoArena }))
@@ -390,7 +396,7 @@ const Games = () => {
               />
             </React.Suspense>
           );
-        } else if (ludoGame && sessionGameId === ludoGame.id) {
+        } else if (selectedGame?.name === 'لودو' || selectedGame?.name === 'Ludo') {
           console.log('▶️ تشغيل لعبة لودو');
           const LudoArena = React.lazy(() => 
             import('@/components/games/ludo-game/ludo-arena').then(m => ({ default: m.LudoArena }))
