@@ -345,8 +345,37 @@ const Games = () => {
 
         const sessionGameId = currentGameSession.game_id;
 
-        console.log('🆔 معرف اللعبة من الجلسة:', sessionGameId);
-        console.log('🎮 اسم اللعبة المحددة:', selectedGame?.name);
+        // ✅ التحقق الحرج: التأكد من أن اللعبة المحددة تطابق اللعبة من الجلسة
+        if (selectedGame.id !== sessionGameId) {
+          console.error('❌ عدم تطابق معرف اللعبة!');
+          console.error('معرف اللعبة المحلي:', selectedGame.id);
+          console.error('معرف اللعبة من الجلسة:', sessionGameId);
+          
+          // إعادة جلب اللعبة الصحيحة
+          supabase
+            .from('games')
+            .select('*')
+            .eq('id', sessionGameId)
+            .single()
+            .then(({ data, error }) => {
+              if (data && !error) {
+                console.log('✅ تم تصحيح اللعبة إلى:', data.name);
+                setSelectedGame(data);
+              }
+            });
+          
+          return (
+            <div className="flex items-center justify-center min-h-screen">
+              <Card className="p-8 text-center">
+                <div className="animate-spin h-12 w-12 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+                <p className="text-lg font-semibold">جاري تصحيح بيانات اللعبة...</p>
+              </Card>
+            </div>
+          );
+        }
+
+        console.log('✅ تطابق معرف اللعبة - game_id:', sessionGameId);
+        console.log('🎮 اسم اللعبة:', selectedGame.name);
 
         if (selectedGame?.name === 'XO Race' || selectedGame?.name === 'XO' || selectedGame?.name === 'اكس او') {
           console.log('▶️ تشغيل لعبة XO');
