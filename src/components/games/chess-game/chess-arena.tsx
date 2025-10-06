@@ -163,8 +163,30 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
 
       // Check for checkmate or stalemate
       if (chess.isCheckmate()) {
+        toast({
+          title: "كش مات! ♔",
+          description: "انتهت اللعبة!",
+          variant: "default"
+        });
+        
+        // تحديث حالة المباراة في قاعدة البيانات
+        await supabase
+          .from('chess_matches')
+          .update({ match_status: 'checkmate' })
+          .eq('game_session_id', sessionId);
+        
         await handleGameEnd('checkmate');
-      } else if (chess.isStalemate() || chess.isDraw()) {
+      } else if (chess.isStalemate()) {
+        toast({
+          title: "طريق مسدود",
+          description: "تعادل - لا توجد حركات قانونية متاحة",
+        });
+        await handleGameEnd('draw');
+      } else if (chess.isDraw()) {
+        toast({
+          title: "تعادل",
+          description: "انتهت اللعبة بالتعادل",
+        });
         await handleGameEnd('draw');
       }
 

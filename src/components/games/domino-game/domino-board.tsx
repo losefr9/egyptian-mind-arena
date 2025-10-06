@@ -45,17 +45,31 @@ export const DominoBoard: React.FC<DominoBoardProps> = ({
 
       {chain.length === 0 ? (
         <div className="relative flex items-center justify-center h-full min-h-[180px]">
-          <div className="text-center space-y-4 animate-pulse">
-            <div className="text-7xl">🎲</div>
+          <div className="text-center space-y-4">
+            <div className="text-7xl animate-bounce">🎲</div>
             <div className="space-y-2">
               <p className="text-xl font-bold text-primary">ابدأ اللعبة!</p>
-              <p className="text-sm text-muted-foreground">ضع أول قطعة لبدء السلسلة</p>
+              <p className="text-sm text-muted-foreground">
+                {selectedPiece ? 'اضغط على القطعة مرة أخرى لوضعها' : 'اختر قطعة من يدك'}
+              </p>
             </div>
             {selectedPiece && (
-              <div className="mt-4 px-4 py-2 bg-primary/20 rounded-xl border border-primary/30 backdrop-blur-sm">
-                <p className="text-sm font-medium">
-                  القطعة المحددة: {selectedPiece.left} - {selectedPiece.right}
-                </p>
+              <div className="mt-4 space-y-3">
+                <div className="px-4 py-2 bg-primary/20 rounded-xl border border-primary/30 backdrop-blur-sm">
+                  <p className="text-sm font-medium">
+                    القطعة المحددة: {selectedPiece.left} - {selectedPiece.right}
+                  </p>
+                </div>
+                {/* زر وضع القطعة للوحة الفارغة */}
+                {onPlaceLeft && (
+                  <Button
+                    onClick={onPlaceLeft}
+                    size="lg"
+                    className="bg-gradient-to-r from-success to-success/80 hover:scale-105 transition-all shadow-2xl animate-pulse"
+                  >
+                    🎴 ضع القطعة على اللوحة
+                  </Button>
+                )}
               </div>
             )}
           </div>

@@ -157,14 +157,22 @@ export const DominoArena: React.FC<DominoArenaProps> = ({
     }
   };
 
-  const handlePlacePiece = async (side: 'left' | 'right') => {
+  const handlePlacePiece = async (side?: 'left' | 'right') => {
     if (!selectedPiece || !isMyTurn) return;
+
+    // ✅ إذا كانت اللوحة فارغة، لا نحتاج لتحديد جهة
+    const finalSide = chain.length === 0 ? 'left' : side;
+    
+    if (!finalSide) {
+      toast.error('اختر الجهة التي تريد وضع القطعة فيها');
+      return;
+    }
 
     const { data, error } = await supabase.rpc('make_domino_move', {
       p_game_session_id: sessionId,
       p_player_id: currentUserId,
       p_piece: selectedPiece,
-      p_side: side
+      p_side: finalSide
     });
 
     if (error) {
@@ -181,10 +189,10 @@ export const DominoArena: React.FC<DominoArenaProps> = ({
     }
 
     if (result?.winner) {
-      toast.success('فوز!');
+      toast.success('فوز! 🎉');
       onGameEnd(result.winner);
     } else {
-      toast.success('تم تنفيذ الحركة');
+      toast.success('تم تنفيذ الحركة ✅');
     }
 
     setSelectedPiece(null);

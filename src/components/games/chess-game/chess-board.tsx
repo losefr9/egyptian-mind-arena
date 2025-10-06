@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
+import { Chess } from 'chess.js';
 
 interface ChessBoardProps {
   position: string;
@@ -67,7 +68,14 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
       const myColor = orientation === 'white' ? 'w' : 'b';
       if (piece.startsWith(myColor)) {
         setSelectedSquare(squareName);
-        setHighlightedSquares([squareName]);
+        
+        // ✅ حساب كل الحركات الممكنة من هذه القطعة
+        const tempChess = new Chess(position);
+        const moves = tempChess.moves({ square: squareName as any, verbose: true }) as any[];
+        const possibleSquares = moves.map((move: any) => move.to);
+        
+        // إضافة المربع المحدد نفسه + كل المربعات الممكنة
+        setHighlightedSquares([squareName, ...possibleSquares]);
       }
     }
   };
@@ -149,7 +157,13 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
                   {/* Highlight effect for possible moves */}
                   {isHighlighted && !isSelected && (
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      <div className="w-3 h-3 rounded-full bg-primary/50 animate-pulse" />
+                      {piece ? (
+                        // إذا كان هناك قطعة (حركة أسر)
+                        <div className="absolute inset-1 border-4 border-destructive rounded-full animate-pulse" />
+                      ) : (
+                        // إذا كان مربع فارغ (حركة عادية)
+                        <div className="w-4 h-4 rounded-full bg-success/70 animate-pulse shadow-lg" />
+                      )}
                     </div>
                   )}
                 </button>
