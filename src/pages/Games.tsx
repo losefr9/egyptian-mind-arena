@@ -343,14 +343,12 @@ const Games = () => {
           );
         }
 
-        // استخدام game_id من الجلسة مباشرة - المصدر الوحيد للحقيقة
         const sessionGameId = currentGameSession.game_id;
-        
+
         console.log('🆔 معرف اللعبة من الجلسة:', sessionGameId);
         console.log('🎮 اسم اللعبة المحددة:', selectedGame?.name);
-        
-        // مقارنة مباشرة مع معرف اللعبة من الجلسة - بدون الاعتماد على قائمة games
-        if (sessionGameId === selectedGame?.id) {
+
+        if (selectedGame?.name === 'XO Race' || selectedGame?.name === 'XO' || selectedGame?.name === 'اكس او') {
           console.log('▶️ تشغيل لعبة XO');
           return (
             <XORaceArena
