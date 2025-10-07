@@ -14,10 +14,12 @@ import { WaitingScreen } from '@/components/games/waiting-screen';
 import { MatchPreparationScreen } from '@/components/games/match-preparation-screen';
 import { XORaceArena } from '@/components/games/xo-game/xo-race-arena';
 import { ChessArena } from '@/components/games/chess-game/chess-arena';
+import { GameSessionValidator } from '@/components/games/game-session-validator';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { InstallAppButton } from '@/components/ui/install-app-button';
+import { GAME_IDS, GAME_NAMES } from '@/constants/games';
 
 type ViewState = 'games' | 'betting' | 'waiting' | 'verifying_data' | 'preparation' | 'playing';
 
@@ -58,23 +60,27 @@ const Games = () => {
     setupPresenceTracking();
   }, []);
 
-  // التحقق من البيانات وجلب اللعبة الصحيحة
+  // ✅ CRITICAL: التحقق والمزامنة التلقائية - المصدر الوحيد للحقيقة هو game_id من قاعدة البيانات
   useEffect(() => {
     const verifyAndFetchGameData = async () => {
       if (currentGameSession && currentGameSession.game_id && viewState === 'verifying_data') {
         setIsLoadingGame(true);
-        console.log('🔍 التحقق من بيانات اللعبة - game_id:', currentGameSession.game_id);
-        console.log('💰 مبلغ الرهان:', currentGameSession.bet_amount);
+        
+        const sessionGameId = currentGameSession.game_id;
+        console.log('🔍 [SYNC] التحقق من game_id من الجلسة:', sessionGameId);
+        console.log('🔍 [SYNC] اسم اللعبة المتوقع:', GAME_NAMES[sessionGameId as keyof typeof GAME_IDS] || 'غير معروف');
+        console.log('💰 [SYNC] مبلغ الرهان:', currentGameSession.bet_amount);
         
         try {
-          // جلب بيانات اللعبة
+          // جلب بيانات اللعبة بناءً على game_id من الجلسة فقط
           const { data: gameData, error: gameError } = await supabase
             .from('games')
             .select('*')
-            .eq('id', currentGameSession.game_id)
+            .eq('id', sessionGameId)
             .single();
 
           if (gameError) throw gameError;
+          if (!gameData) throw new Error('لم يتم العثور على اللعبة');
 
           // جلب أسماء اللاعبين
           const { data: player1Data } = await supabase.rpc('get_public_username', { 
@@ -87,20 +93,20 @@ const Games = () => {
           setPlayer1Name(player1Data?.[0]?.username || 'لاعب 1');
           setPlayer2Name(player2Data?.[0]?.username || 'لاعب 2');
 
-          if (gameData) {
-            console.log('✅ تم التحقق من اللعبة:', gameData.name);
-            console.log('🆔 معرف اللعبة:', gameData.id);
-            console.log('👥 اللاعبون:', player1Data?.[0]?.username, 'vs', player2Data?.[0]?.username);
-            setSelectedGame(gameData);
-            
-            // الانتقال لشاشة التحضير بعد 2 ثانية
-            setTimeout(() => {
-              console.log('✅ البيانات جاهزة - الانتقال لشاشة التحضير');
-              setViewState('preparation');
-            }, 2000);
-          }
+          // ✅ تحديث selectedGame بناءً على game_id من الجلسة فقط
+          console.log('✅ [SYNC] تم التحقق - اللعبة من DB:', gameData.name, '| ID:', gameData.id);
+          console.log('👥 [SYNC] اللاعبون:', player1Data?.[0]?.username, 'vs', player2Data?.[0]?.username);
+          
+          setSelectedGame(gameData);
+          
+          // الانتقال لشاشة التحضير بعد 2 ثانية
+          setTimeout(() => {
+            console.log('✅ [SYNC] البيانات متزامنة - الانتقال لشاشة التحضير');
+            setViewState('preparation');
+          }, 2000);
+
         } catch (error) {
-          console.error('❌ خطأ في التحقق من بيانات اللعبة:', error);
+          console.error('❌ [SYNC] خطأ في التحقق من بيانات اللعبة:', error);
           toast.error('خطأ في تحميل بيانات المباراة');
           handleBackToGames();
         } finally {
@@ -327,7 +333,7 @@ const Games = () => {
       
       case 'playing':
         if (!currentGameSession) {
-          console.error('❌ لا توجد جلسة لعب');
+          console.error('❌ [RENDER] لا توجد جلسة لعب');
           return null;
         }
 
@@ -344,50 +350,26 @@ const Games = () => {
         }
 
         const sessionGameId = currentGameSession.game_id;
+        
+        console.log('🎮 [RENDER] معرف اللعبة من الجلسة:', sessionGameId);
+        console.log('🎮 [RENDER] اسم اللعبة المتوقع:', GAME_NAMES[sessionGameId as keyof typeof GAME_IDS]);
 
-        // ✅ التحقق الحرج: التأكد من أن اللعبة المحددة تطابق اللعبة من الجلسة
-        if (selectedGame.id !== sessionGameId) {
-          console.error('❌ عدم تطابق معرف اللعبة!');
-          console.error('معرف اللعبة المحلي:', selectedGame.id);
-          console.error('معرف اللعبة من الجلسة:', sessionGameId);
-          
-          // إعادة جلب اللعبة الصحيحة
-          supabase
-            .from('games')
-            .select('*')
-            .eq('id', sessionGameId)
-            .single()
-            .then(({ data, error }) => {
-              if (data && !error) {
-                console.log('✅ تم تصحيح اللعبة إلى:', data.name);
-                setSelectedGame(data);
-              }
-            });
-          
-          return (
-            <div className="flex items-center justify-center min-h-screen">
-              <Card className="p-8 text-center">
-                <div className="animate-spin h-12 w-12 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-                <p className="text-lg font-semibold">جاري تصحيح بيانات اللعبة...</p>
-              </Card>
-            </div>
-          );
-        }
-
-        console.log('✅ تطابق معرف اللعبة - game_id:', sessionGameId);
-        console.log('🎮 اسم اللعبة:', selectedGame.name);
-
-        if (selectedGame?.name === 'XO Race' || selectedGame?.name === 'XO' || selectedGame?.name === 'اكس او') {
-          console.log('▶️ تشغيل لعبة XO');
+        // ✅ CRITICAL FIX: استخدام game_id فقط بدلاً من selectedGame.name
+        // المصدر الوحيد للحقيقة هو currentGameSession.game_id
+        
+        if (sessionGameId === GAME_IDS.XO) {
+          console.log('▶️ [RENDER] تشغيل لعبة XO - game_id:', GAME_IDS.XO);
           return (
             <XORaceArena
               gameSession={currentGameSession}
               onExit={handleExitGame}
             />
           );
-        } else if (selectedGame?.name === 'شطرنج' || selectedGame?.name === 'Chess') {
-          console.log('▶️ تشغيل لعبة الشطرنج');
-          const ChessArena = React.lazy(() => 
+        } 
+        
+        if (sessionGameId === GAME_IDS.CHESS) {
+          console.log('▶️ [RENDER] تشغيل لعبة الشطرنج - game_id:', GAME_IDS.CHESS);
+          const ChessArenaLazy = React.lazy(() => 
             import('@/components/games/chess-game/chess-arena').then(m => ({ default: m.ChessArena }))
           );
           
@@ -400,7 +382,7 @@ const Games = () => {
                 </div>
               </div>
             }>
-              <ChessArena
+              <ChessArenaLazy
                 sessionId={currentGameSession.id}
                 currentUserId={user!.id}
                 player1Id={currentGameSession.player1_id}
@@ -422,14 +404,16 @@ const Games = () => {
               />
             </React.Suspense>
           );
-        } else if (selectedGame?.name === 'دومينو' || selectedGame?.name === 'Domino') {
-          console.log('▶️ تشغيل لعبة الدومينو');
-          const DominoArena = React.lazy(() => 
+        } 
+        
+        if (sessionGameId === GAME_IDS.DOMINO) {
+          console.log('▶️ [RENDER] تشغيل لعبة الدومينو - game_id:', GAME_IDS.DOMINO);
+          const DominoArenaLazy = React.lazy(() => 
             import('@/components/games/domino-game/domino-arena').then(m => ({ default: m.DominoArena }))
           );
           return (
             <React.Suspense fallback={<div className="flex items-center justify-center min-h-screen">جاري التحميل...</div>}>
-              <DominoArena
+              <DominoArenaLazy
                 sessionId={currentGameSession.id}
                 currentUserId={user!.id}
                 player1Id={currentGameSession.player1_id}
@@ -451,14 +435,16 @@ const Games = () => {
               />
             </React.Suspense>
           );
-        } else if (selectedGame?.name === 'لودو' || selectedGame?.name === 'Ludo') {
-          console.log('▶️ تشغيل لعبة لودو');
-          const LudoArena = React.lazy(() => 
+        } 
+        
+        if (sessionGameId === GAME_IDS.LUDO) {
+          console.log('▶️ [RENDER] تشغيل لعبة لودو - game_id:', GAME_IDS.LUDO);
+          const LudoArenaLazy = React.lazy(() => 
             import('@/components/games/ludo-game/ludo-arena').then(m => ({ default: m.LudoArena }))
           );
           return (
             <React.Suspense fallback={<div className="flex items-center justify-center min-h-screen">جاري التحميل...</div>}>
-              <LudoArena
+              <LudoArenaLazy
                 sessionId={currentGameSession.id}
                 currentUserId={user!.id}
                 player1Id={currentGameSession.player1_id}
@@ -470,11 +456,14 @@ const Games = () => {
           );
         }
         
-        console.error('❌ لعبة غير معروفة:', selectedGame.name, selectedGame.id);
+        // ❌ لعبة غير معروفة - game_id غير موجود في GAME_IDS
+        console.error('❌ [RENDER] لعبة غير معروفة - game_id:', sessionGameId);
+        console.error('❌ [RENDER] الألعاب المتاحة:', Object.entries(GAME_IDS));
         return (
           <div className="flex items-center justify-center min-h-screen">
             <Card className="p-6">
               <p>خطأ: اللعبة غير معروفة</p>
+              <p className="text-xs text-muted-foreground mt-2">معرف اللعبة: {sessionGameId}</p>
             </Card>
           </div>
         );

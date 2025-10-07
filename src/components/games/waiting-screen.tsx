@@ -64,13 +64,14 @@ export const WaitingScreen: React.FC<WaitingScreenProps> = ({
                   .single();
 
                 if (!error && sessionData) {
+                  console.log('✅ [WAITING] تم العثور على مطابقة - game_id:', sessionData.game_id);
                   setStatus('found');
                   setTimeout(() => {
                     onMatchFound(sessionData);
                   }, 2000);
                 }
               } catch (error) {
-                console.error('Error fetching matched session:', error);
+                console.error('❌ [WAITING] خطأ في جلب الجلسة المطابقة:', error);
               }
             }
           }
@@ -99,10 +100,11 @@ export const WaitingScreen: React.FC<WaitingScreenProps> = ({
             filter: `id=eq.${gameSessionId}`
           },
           (payload) => {
-            console.log('Game session updated:', payload);
+            console.log('🔄 [WAITING] تحديث جلسة اللعبة:', payload);
             const updatedSession = payload.new;
             
             if (updatedSession.status === 'in_progress' && updatedSession.player2_id) {
+              console.log('✅ [WAITING] مباراة جاهزة - game_id:', updatedSession.game_id);
               setStatus('found');
               setTimeout(() => {
                 onMatchFound(updatedSession);
@@ -124,6 +126,7 @@ export const WaitingScreen: React.FC<WaitingScreenProps> = ({
           if (error) throw error;
 
           if (data && data.status === 'in_progress' && data.player2_id) {
+            console.log('✅ [WAITING] جلسة موجودة مسبقاً - game_id:', data.game_id);
             setStatus('found');
             setTimeout(() => {
               onMatchFound(data);
