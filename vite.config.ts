@@ -3,13 +3,19 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 
-// Plugin to prevent loading @radix-ui/react-tooltip
-const excludeTooltipPlugin = (): Plugin => ({
-  name: 'exclude-radix-tooltip',
+// Plugin to completely block @radix-ui/react-tooltip loading
+const blockTooltipPlugin = (): Plugin => ({
+  name: 'block-radix-tooltip',
   enforce: 'pre',
   resolveId(id) {
     if (id === '@radix-ui/react-tooltip' || id.includes('@radix-ui/react-tooltip')) {
       return path.resolve(__dirname, './src/components/ui/tooltip.tsx');
+    }
+    return null;
+  },
+  load(id) {
+    if (id.includes('@radix-ui/react-tooltip')) {
+      return `export * from '${path.resolve(__dirname, './src/components/ui/tooltip.tsx')}';`;
     }
     return null;
   }
@@ -24,10 +30,11 @@ export default defineConfig(({ mode }) => ({
       strict: false,
     },
   },
+  cacheDir: '.vite-custom',
   plugins: [
     react(), 
     mode === "development" && componentTagger(),
-    excludeTooltipPlugin()
+    blockTooltipPlugin()
   ].filter(Boolean),
   resolve: {
     alias: {
@@ -37,11 +44,14 @@ export default defineConfig(({ mode }) => ({
       "react-dom": path.resolve(__dirname, "./node_modules/react-dom"),
     },
     dedupe: ["react", "react-dom"],
+    conditions: ['import', 'module', 'browser', 'default'],
   },
   optimizeDeps: {
     include: ["react", "react-dom"],
     exclude: ["@radix-ui/react-tooltip"],
-    force: true,
+    esbuildOptions: {
+      resolveExtensions: ['.tsx', '.ts', '.jsx', '.js'],
+    },
   },
   build: {
     commonjsOptions: {
