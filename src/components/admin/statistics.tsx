@@ -2,7 +2,21 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart3, Users, TrendingUp, DollarSign, Activity, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { LineChart, Line, PieChart, Pie, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
+import { 
+  LineChart, 
+  Line, 
+  PieChart, 
+  Pie, 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip as RechartsTooltip, 
+  Legend, 
+  ResponsiveContainer, 
+  Cell 
+} from 'recharts';
 
 interface Stats {
   totalUsers: number;
@@ -223,7 +237,7 @@ export const Statistics = () => {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
                 <YAxis />
-                <Tooltip />
+                <RechartsTooltip />
                 <Legend />
                 <Line type="monotone" dataKey="earnings" stroke="hsl(var(--primary))" name="الأرباح" />
               </LineChart>
@@ -253,7 +267,7 @@ export const Statistics = () => {
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip />
+                <RechartsTooltip />
               </PieChart>
             </ResponsiveContainer>
           </CardContent>
