@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Building, Edit, Power, TrendingUp, CheckCircle, XCircle } from 'lucide-react';
+import { Building, Edit, Power, TrendingUp, CheckCircle, XCircle, Plus, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import {
   Dialog,
@@ -15,11 +16,16 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 
+interface AccountDetail {
+  label: string;
+  value: string;
+}
+
 interface PaymentGateway {
   id: string;
   name: string;
   type: string;
-  account_details: any;
+  account_details: AccountDetail[];
   is_active: boolean;
   min_amount: number;
   max_amount: number;
@@ -43,6 +49,7 @@ export const PaymentGateways = () => {
   const [stats, setStats] = useState<GatewayStats[]>([]);
   const [selectedGateway, setSelectedGateway] = useState<PaymentGateway | null>(null);
   const [loading, setLoading] = useState(true);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -58,7 +65,16 @@ export const PaymentGateways = () => {
         .order('name');
 
       if (error) throw error;
-      setGateways(data || []);
+      
+      // تحويل account_details من jsonb إلى مصفوفة
+      const formattedData = (data || []).map(gateway => ({
+        ...gateway,
+        account_details: Array.isArray(gateway.account_details) 
+          ? (gateway.account_details as any[]).map(d => ({ label: String(d.label || ''), value: String(d.value || '') }))
+          : Object.entries(gateway.account_details || {}).map(([label, value]) => ({ label, value: String(value) }))
+      })) as PaymentGateway[];
+      
+      setGateways(formattedData);
     } catch (error) {
       console.error('Error fetching gateways:', error);
       toast({
@@ -108,12 +124,23 @@ export const PaymentGateways = () => {
     }
   };
 
-  const updateGateway = async (gateway: PaymentGateway) => {
+  const updateGateway = async () => {
+    if (!selectedGateway) return;
+
     try {
       const { error } = await supabase
         .from('payment_gateways')
-        .update(gateway)
-        .eq('id', gateway.id);
+        .update({
+          name: selectedGateway.name,
+          type: selectedGateway.type,
+          account_details: selectedGateway.account_details as any,
+          min_amount: selectedGateway.min_amount,
+          max_amount: selectedGateway.max_amount,
+          fees_percentage: selectedGateway.fees_percentage,
+          instructions: selectedGateway.instructions,
+          processing_time: selectedGateway.processing_time,
+        })
+        .eq('id', selectedGateway.id);
 
       if (error) throw error;
 
@@ -122,6 +149,7 @@ export const PaymentGateways = () => {
         description: 'تم تحديث بيانات البوابة',
       });
       fetchGateways();
+      setEditDialogOpen(false);
       setSelectedGateway(null);
     } catch (error) {
       console.error('Error updating gateway:', error);
@@ -131,6 +159,34 @@ export const PaymentGateways = () => {
         variant: 'destructive',
       });
     }
+  };
+
+  const addAccountDetail = () => {
+    if (!selectedGateway) return;
+    setSelectedGateway({
+      ...selectedGateway,
+      account_details: [...selectedGateway.account_details, { label: '', value: '' }]
+    });
+  };
+
+  const removeAccountDetail = (index: number) => {
+    if (!selectedGateway) return;
+    const newDetails = [...selectedGateway.account_details];
+    newDetails.splice(index, 1);
+    setSelectedGateway({
+      ...selectedGateway,
+      account_details: newDetails
+    });
+  };
+
+  const updateAccountDetail = (index: number, field: 'label' | 'value', value: string) => {
+    if (!selectedGateway) return;
+    const newDetails = [...selectedGateway.account_details];
+    newDetails[index][field] = value;
+    setSelectedGateway({
+      ...selectedGateway,
+      account_details: newDetails
+    });
   };
 
   const getGatewayStats = (gatewayId: string) => {
@@ -179,93 +235,39 @@ export const PaymentGateways = () => {
                       checked={gateway.is_active}
                       onCheckedChange={() => toggleGateway(gateway.id, gateway.is_active)}
                     />
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setSelectedGateway(gateway)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-2xl">
-                        <DialogHeader>
-                          <DialogTitle>تعديل بوابة الدفع</DialogTitle>
-                        </DialogHeader>
-                        {selectedGateway && (
-                          <div className="space-y-4">
-                            <div>
-                              <Label>الحد الأدنى للمبلغ</Label>
-                              <Input
-                                type="number"
-                                value={selectedGateway.min_amount}
-                                onChange={(e) =>
-                                  setSelectedGateway({
-                                    ...selectedGateway,
-                                    min_amount: Number(e.target.value),
-                                  })
-                                }
-                              />
-                            </div>
-                            <div>
-                              <Label>الحد الأقصى للمبلغ</Label>
-                              <Input
-                                type="number"
-                                value={selectedGateway.max_amount}
-                                onChange={(e) =>
-                                  setSelectedGateway({
-                                    ...selectedGateway,
-                                    max_amount: Number(e.target.value),
-                                  })
-                                }
-                              />
-                            </div>
-                            <div>
-                              <Label>نسبة الرسوم (%)</Label>
-                              <Input
-                                type="number"
-                                step="0.01"
-                                value={selectedGateway.fees_percentage}
-                                onChange={(e) =>
-                                  setSelectedGateway({
-                                    ...selectedGateway,
-                                    fees_percentage: Number(e.target.value),
-                                  })
-                                }
-                              />
-                            </div>
-                            <div>
-                              <Label>التعليمات</Label>
-                              <Input
-                                value={selectedGateway.instructions}
-                                onChange={(e) =>
-                                  setSelectedGateway({
-                                    ...selectedGateway,
-                                    instructions: e.target.value,
-                                  })
-                                }
-                              />
-                            </div>
-                            <Button onClick={() => updateGateway(selectedGateway)}>
-                              حفظ التغييرات
-                            </Button>
-                          </div>
-                        )}
-                      </DialogContent>
-                    </Dialog>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedGateway(gateway);
+                        setEditDialogOpen(true);
+                      }}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* معلومات الحساب */}
+                <div className="bg-muted/50 p-3 rounded-lg space-y-2">
+                  <p className="text-sm font-semibold text-muted-foreground">معلومات الحساب:</p>
+                  {gateway.account_details.map((detail, index) => (
+                    <div key={index} className="text-sm">
+                      <span className="font-medium">{detail.label}:</span>{' '}
+                      <span className="text-muted-foreground">{detail.value}</span>
+                    </div>
+                  ))}
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-muted-foreground">الحد الأدنى</p>
-                    <p className="text-lg font-semibold">{gateway.min_amount} جنيه</p>
+                    <p className="text-lg font-semibold">{gateway.min_amount} ج.م</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">الحد الأقصى</p>
-                    <p className="text-lg font-semibold">{gateway.max_amount} جنيه</p>
+                    <p className="text-lg font-semibold">{gateway.max_amount} ج.م</p>
                   </div>
                 </div>
 
@@ -287,7 +289,7 @@ export const PaymentGateways = () => {
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">إجمالي المبالغ</span>
-                    <span className="font-medium">{gatewayStats.total_amount.toFixed(2)} جنيه</span>
+                    <span className="font-medium">{gatewayStats.total_amount.toFixed(2)} ج.م</span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">متوسط وقت المعالجة</span>
@@ -299,6 +301,176 @@ export const PaymentGateways = () => {
           );
         })}
       </div>
+
+      {/* Dialog للتعديل */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>تعديل بوابة الدفع</DialogTitle>
+          </DialogHeader>
+          {selectedGateway && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>اسم البوابة</Label>
+                  <Input
+                    value={selectedGateway.name}
+                    onChange={(e) =>
+                      setSelectedGateway({
+                        ...selectedGateway,
+                        name: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <Label>نوع البوابة</Label>
+                  <Input
+                    value={selectedGateway.type}
+                    onChange={(e) =>
+                      setSelectedGateway({
+                        ...selectedGateway,
+                        type: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+              </div>
+
+              {/* معلومات الحسابات/الأرقام */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label>معلومات الحساب (الأرقام/المحافظ)</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addAccountDetail}
+                  >
+                    <Plus className="h-4 w-4 ml-1" />
+                    إضافة
+                  </Button>
+                </div>
+                
+                {selectedGateway.account_details.map((detail, index) => (
+                  <div key={index} className="flex gap-2 items-start p-3 bg-muted/50 rounded-lg">
+                    <div className="flex-1">
+                      <Input
+                        placeholder="العنوان (مثل: رقم الهاتف، اسم المحفظة)"
+                        value={detail.label}
+                        onChange={(e) => updateAccountDetail(index, 'label', e.target.value)}
+                        className="mb-2"
+                      />
+                      <Input
+                        placeholder="القيمة (مثل: 01234567890)"
+                        value={detail.value}
+                        onChange={(e) => updateAccountDetail(index, 'value', e.target.value)}
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => removeAccountDetail(index)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>الحد الأدنى للمبلغ (ج.م)</Label>
+                  <Input
+                    type="number"
+                    value={selectedGateway.min_amount}
+                    onChange={(e) =>
+                      setSelectedGateway({
+                        ...selectedGateway,
+                        min_amount: Number(e.target.value),
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <Label>الحد الأقصى للمبلغ (ج.م)</Label>
+                  <Input
+                    type="number"
+                    value={selectedGateway.max_amount}
+                    onChange={(e) =>
+                      setSelectedGateway({
+                        ...selectedGateway,
+                        max_amount: Number(e.target.value),
+                      })
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>نسبة الرسوم (%)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={selectedGateway.fees_percentage}
+                    onChange={(e) =>
+                      setSelectedGateway({
+                        ...selectedGateway,
+                        fees_percentage: Number(e.target.value),
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <Label>وقت المعالجة</Label>
+                  <Input
+                    value={selectedGateway.processing_time}
+                    onChange={(e) =>
+                      setSelectedGateway({
+                        ...selectedGateway,
+                        processing_time: e.target.value,
+                      })
+                    }
+                    placeholder="مثل: 5-15 دقيقة"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label>التعليمات</Label>
+                <Textarea
+                  value={selectedGateway.instructions}
+                  onChange={(e) =>
+                    setSelectedGateway({
+                      ...selectedGateway,
+                      instructions: e.target.value,
+                    })
+                  }
+                  rows={4}
+                  placeholder="أدخل تعليمات للمستخدمين حول كيفية استخدام هذه البوابة"
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <Button onClick={updateGateway} className="flex-1">
+                  حفظ التغييرات
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setEditDialogOpen(false);
+                    setSelectedGateway(null);
+                  }}
+                >
+                  إلغاء
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
