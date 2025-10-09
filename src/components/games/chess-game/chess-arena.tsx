@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Trophy, Users } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { GameEndDialog } from '../game-end-dialog';
 
 interface ChessArenaProps {
   sessionId: string;
@@ -34,6 +35,8 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
   const [capturedPieces, setCapturedPieces] = useState<{ white: string[], black: string[] }>({ white: [], black: [] });
   const [player1Name, setPlayer1Name] = useState('');
   const [player2Name, setPlayer2Name] = useState('');
+  const [gameEndState, setGameEndState] = useState<{ show: boolean; result: 'win' | 'lose' | 'draw'; prize: number } | null>(null);
+  const [moveCount, setMoveCount] = useState(0);
   const { toast } = useToast();
 
   const isMyTurn = currentTurn === currentUserId;
@@ -161,32 +164,13 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
         return false;
       }
 
+      setMoveCount(prev => prev + 1);
+
       // Check for checkmate or stalemate
       if (chess.isCheckmate()) {
-        toast({
-          title: "كش مات! ♔",
-          description: "انتهت اللعبة!",
-          variant: "default"
-        });
-        
-        // تحديث حالة المباراة في قاعدة البيانات
-        await supabase
-          .from('chess_matches')
-          .update({ match_status: 'checkmate' })
-          .eq('game_session_id', sessionId);
-        
+        await supabase.from('chess_matches').update({ match_status: 'checkmate' }).eq('game_session_id', sessionId);
         await handleGameEnd('checkmate');
-      } else if (chess.isStalemate()) {
-        toast({
-          title: "طريق مسدود",
-          description: "تعادل - لا توجد حركات قانونية متاحة",
-        });
-        await handleGameEnd('draw');
-      } else if (chess.isDraw()) {
-        toast({
-          title: "تعادل",
-          description: "انتهت اللعبة بالتعادل",
-        });
+      } else if (chess.isStalemate() || chess.isDraw()) {
         await handleGameEnd('draw');
       }
 
@@ -199,27 +183,23 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
 
   const handleGameEnd = async (status: string) => {
     let winnerId = null;
+    let result: 'win' | 'lose' | 'draw' = 'draw';
     
     if (status === 'checkmate') {
       winnerId = currentTurn === player1Id ? player2Id : player1Id;
-      toast({
-        title: "كش مات! 🎉",
-        description: winnerId === currentUserId ? "مبروك! لقد فزت!" : "خسرت المباراة",
-      });
+      result = winnerId === currentUserId ? 'win' : 'lose';
     } else if (status === 'timeout') {
       winnerId = player1Time <= 0 ? player2Id : player1Id;
-      toast({
-        title: "انتهى الوقت ⏰",
-        description: winnerId === currentUserId ? "فزت بسبب نفاد وقت الخصم" : "نفد وقتك",
-      });
-    } else if (status === 'draw') {
-      toast({
-        title: "تعادل",
-        description: "انتهت المباراة بالتعادل",
-      });
+      result = winnerId === currentUserId ? 'win' : 'lose';
     }
 
-    onGameEnd(winnerId);
+    setGameEndState({
+      show: true,
+      result,
+      prize: result === 'win' ? betAmount * 1.8 : 0
+    });
+
+    setTimeout(() => onGameEnd(winnerId), 5000);
   };
 
   const handleTimeUpdate = async (p1Time: number, p2Time: number) => {
@@ -231,7 +211,18 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-card/50 p-4">
+    <>
+      {gameEndState && (
+        <GameEndDialog
+          isOpen={gameEndState.show}
+          result={gameEndState.result}
+          prize={gameEndState.prize}
+          stats={{ moves: moveCount }}
+          onBackToGames={onGameEnd}
+        />
+      )}
+      
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-card/50 p-4">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header with improved design */}
         <Card className="p-6 bg-gradient-to-r from-card/90 to-card/70 backdrop-blur-xl border-primary/20 shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
@@ -365,5 +356,6 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
         </div>
       </div>
     </div>
+    </>
   );
 };

@@ -57,26 +57,40 @@ export const DominoPiece: React.FC<DominoPieceProps> = ({
     <div
       onClick={disabled ? undefined : onClick}
       className={cn(
-        "relative bg-gradient-to-br from-white via-gray-50 to-gray-100 dark:from-card dark:via-card/90 dark:to-card/80",
-        "border-2 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.15)] transition-all duration-300",
+        // ✨ اللمسة الذهبية - Golden Touch
+        "relative bg-gradient-to-br from-amber-50 via-white to-amber-50/50",
+        "dark:from-amber-900/20 dark:via-card dark:to-amber-800/10",
+        "border-2 rounded-xl shadow-[0_4px_12px_rgba(217,119,6,0.2)] transition-all duration-300",
         "flex",
-        isHorizontal ? "w-20 h-10 sm:w-24 sm:h-12 flex-row" : "w-10 h-20 sm:w-12 sm:h-24 flex-col",
-        isSelected && "ring-4 ring-primary ring-offset-2 scale-110 animate-pulse border-primary shadow-[0_0_20px_rgba(var(--primary),0.5)]",
-        onClick && !disabled && "cursor-pointer hover:scale-105 hover:shadow-2xl hover:border-primary/50 active:scale-95",
+        isHorizontal ? "w-20 h-10 sm:w-24 sm:h-12 md:w-28 md:h-14 flex-row" : "w-10 h-20 sm:w-12 sm:h-24 md:w-14 md:h-28 flex-col",
+        // Selected state with golden glow
+        isSelected && "ring-4 ring-amber-500 ring-offset-2 scale-110 animate-pulse border-amber-500 shadow-[0_0_30px_rgba(245,158,11,0.6)]",
+        // Hover effects with golden shimmer
+        onClick && !disabled && "cursor-pointer hover:scale-105 hover:shadow-[0_8px_24px_rgba(217,119,6,0.3)] hover:border-amber-400/70 active:scale-95 hover:bg-gradient-to-br hover:from-amber-100/50 hover:via-white hover:to-amber-100/30",
         disabled && "opacity-40 cursor-not-allowed grayscale",
-        !disabled && !isSelected && "border-gray-300 dark:border-gray-700",
+        !disabled && !isSelected && "border-amber-300/40 dark:border-amber-700/40",
         className
       )}
     >
+      {/* Golden edge highlight */}
+      <div className="absolute inset-0 rounded-xl border border-amber-400/20 pointer-events-none" />
+      
+      {/* Golden shimmer effect on hover */}
+      {!disabled && (
+        <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none">
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-300/10 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000" />
+        </div>
+      )}
+
       {/* Left/Top Half */}
       <div className={cn(
         "relative flex items-center justify-center",
-        "border-gray-400 dark:border-gray-600",
+        "border-amber-400/30 dark:border-amber-600/30",
         isHorizontal ? "w-1/2 h-full border-r-2" : "w-full h-1/2 border-b-2"
       )}>
-        {/* Background pattern for texture */}
+        {/* Background pattern with golden tint */}
         <div className="absolute inset-0 opacity-5">
-          <div className="absolute inset-0 bg-[radial-gradient(circle,_#000_1px,_transparent_1px)] bg-[length:8px_8px]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle,_#d97706_1px,_transparent_1px)] bg-[length:8px_8px]" />
         </div>
         {renderDots(piece.left)}
       </div>
@@ -86,18 +100,22 @@ export const DominoPiece: React.FC<DominoPieceProps> = ({
         "relative flex items-center justify-center",
         isHorizontal ? "w-1/2 h-full" : "w-full h-1/2"
       )}>
-        {/* Background pattern for texture */}
+        {/* Background pattern with golden tint */}
         <div className="absolute inset-0 opacity-5">
-          <div className="absolute inset-0 bg-[radial-gradient(circle,_#000_1px,_transparent_1px)] bg-[length:8px_8px]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle,_#d97706_1px,_transparent_1px)] bg-[length:8px_8px]" />
         </div>
         {renderDots(piece.right)}
       </div>
 
-      {/* Glossy overlay effect */}
-      <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent rounded-xl pointer-events-none" />
+      {/* Enhanced glossy overlay with golden tint */}
+      <div className="absolute inset-0 bg-gradient-to-br from-amber-200/20 via-transparent to-transparent rounded-xl pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-white/30 rounded-xl pointer-events-none" />
 
-      {/* Shadow for depth */}
-      <div className="absolute -bottom-1 inset-x-2 h-2 bg-black/20 rounded-full blur-md -z-10" />
+      {/* Enhanced shadow with golden glow */}
+      <div className="absolute -bottom-1 inset-x-2 h-2 bg-amber-900/30 rounded-full blur-md -z-10" />
+      {isSelected && (
+        <div className="absolute inset-0 rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.4)] animate-pulse -z-10" />
+      )}
     </div>
   );
 };

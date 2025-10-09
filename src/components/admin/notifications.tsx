@@ -117,7 +117,6 @@ export const Notifications = () => {
 
   const sendNotification = async (notificationId: string) => {
     try {
-      // الحصول على الإشعار
       const { data: notification } = await supabase
         .from('notifications')
         .select('*')
@@ -126,14 +125,17 @@ export const Notifications = () => {
 
       if (!notification) throw new Error('الإشعار غير موجود');
 
-      // الحصول على المستخدمين المستهدفين
       let targetUsers: any[] = [];
       if (notification.target_type === 'all') {
         const { data } = await supabase.from('profiles').select('id');
         targetUsers = data || [];
       }
 
-      // إنشاء سجلات التسليم
+      if (targetUsers.length === 0) {
+        toast({ title: 'تحذير', description: 'لا يوجد مستخدمين مستهدفين', variant: 'destructive' });
+        return;
+      }
+
       const deliveryRecords = targetUsers.map(user => ({
         notification_id: notificationId,
         user_id: user.id,
@@ -143,9 +145,11 @@ export const Notifications = () => {
         .from('notification_delivery')
         .insert(deliveryRecords);
 
-      if (deliveryError) throw deliveryError;
+      if (deliveryError) {
+        console.error('Delivery error:', deliveryError);
+        throw new Error('فشل في إنشاء سجلات التوصيل');
+      }
 
-      // تحديث حالة الإشعار
       const { error: updateError } = await supabase
         .from('notifications')
         .update({ status: 'sent', sent_at: new Date().toISOString() })
@@ -154,16 +158,16 @@ export const Notifications = () => {
       if (updateError) throw updateError;
 
       toast({
-        title: 'تم بنجاح',
+        title: '✅ تم الإرسال بنجاح',
         description: `تم إرسال الإشعار إلى ${targetUsers.length} مستخدم`,
       });
 
       fetchNotifications();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending notification:', error);
       toast({
-        title: 'خطأ',
-        description: 'فشل في إرسال الإشعار',
+        title: 'خطأ في الإرسال',
+        description: error.message || 'فشل في إرسال الإشعار',
         variant: 'destructive',
       });
     }
