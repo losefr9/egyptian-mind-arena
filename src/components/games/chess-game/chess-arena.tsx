@@ -35,7 +35,7 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
   const [capturedPieces, setCapturedPieces] = useState<{ white: string[], black: string[] }>({ white: [], black: [] });
   const [player1Name, setPlayer1Name] = useState('');
   const [player2Name, setPlayer2Name] = useState('');
-  const [gameEndState, setGameEndState] = useState<{ show: boolean; result: 'win' | 'lose' | 'draw'; prize: number } | null>(null);
+  const [gameEndState, setGameEndState] = useState<{ show: boolean; result: 'win' | 'lose' | 'draw'; prize: number; winnerId: string | null } | null>(null);
   const [moveCount, setMoveCount] = useState(0);
   const { toast } = useToast();
 
@@ -196,7 +196,8 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
     setGameEndState({
       show: true,
       result,
-      prize: result === 'win' ? betAmount * 1.8 : 0
+      prize: result === 'win' ? betAmount * 1.8 : 0,
+      winnerId
     });
 
     setTimeout(() => onGameEnd(winnerId), 5000);
@@ -218,7 +219,7 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
           result={gameEndState.result}
           prize={gameEndState.prize}
           stats={{ moves: moveCount }}
-          onBackToGames={onGameEnd}
+          onBackToGames={() => onGameEnd(gameEndState.winnerId)}
         />
       )}
       
