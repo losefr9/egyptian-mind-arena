@@ -12,7 +12,7 @@ export default defineConfig(({ mode }) => ({
       strict: false,
     },
   },
-  cacheDir: '.vite-custom',
+  cacheDir: '.vite',
   plugins: [
     react(), 
     mode === "development" && componentTagger()
@@ -28,6 +28,7 @@ export default defineConfig(({ mode }) => ({
   },
   optimizeDeps: {
     include: ["react", "react-dom"],
+    force: true,
     esbuildOptions: {
       resolveExtensions: ['.tsx', '.ts', '.jsx', '.js'],
     },
