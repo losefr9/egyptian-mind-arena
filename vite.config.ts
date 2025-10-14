@@ -12,26 +12,18 @@ export default defineConfig(({ mode }) => ({
       strict: false,
     },
   },
-  cacheDir: '.vite',
-  plugins: [
-    react(), 
-    mode === "development" && componentTagger()
-  ].filter(Boolean),
+  plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "@radix-ui/react-tooltip": path.resolve(__dirname, "./src/components/ui/tooltip.tsx"),
       react: path.resolve(__dirname, "./node_modules/react"),
       "react-dom": path.resolve(__dirname, "./node_modules/react-dom"),
     },
     dedupe: ["react", "react-dom"],
-    conditions: ['import', 'module', 'browser', 'default'],
   },
   optimizeDeps: {
     include: ["react", "react-dom"],
-    force: true,
-    esbuildOptions: {
-      resolveExtensions: ['.tsx', '.ts', '.jsx', '.js'],
-    },
   },
   clearScreen: false,
 }));

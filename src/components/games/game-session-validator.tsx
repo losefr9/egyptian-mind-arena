@@ -24,7 +24,7 @@ export const GameSessionValidator: React.FC<GameSessionValidatorProps> = ({
   useEffect(() => {
     const validateGameSession = async () => {
       try {
-        console.log('🔍 [VALIDATOR] التحقق من جلسة اللعبة:', gameSessionId);
+        console.log('🔍 التحقق من جلسة اللعبة:', gameSessionId);
         
         // جلب بيانات الجلسة
         const { data: sessionData, error: sessionError } = await supabase
@@ -34,19 +34,14 @@ export const GameSessionValidator: React.FC<GameSessionValidatorProps> = ({
           .single();
 
         if (sessionError) throw sessionError;
-        if (!sessionData) throw new Error('لم يتم العثور على جلسة اللعبة');
 
-        console.log('📊 [VALIDATOR] بيانات الجلسة:', sessionData);
-        console.log('🎮 [VALIDATOR] معرف اللعبة من الجلسة:', sessionData.game_id);
-        console.log('🎯 [VALIDATOR] معرف اللعبة الحالي:', currentGameId);
-        
-        // ✅ CRITICAL: التحقق من تطابق game_id
-        if (currentGameId && currentGameId !== sessionData.game_id) {
-          console.error('❌ [VALIDATOR] عدم تطابق معرفات الألعاب!');
-          console.error('المتوقع:', sessionData.game_id, GAME_NAMES[sessionData.game_id as keyof typeof GAME_IDS]);
-          console.error('الحالي:', currentGameId);
-          throw new Error('عدم تطابق معرفات الألعاب - جلسة غير صحيحة');
+        if (!sessionData) {
+          throw new Error('لم يتم العثور على جلسة اللعبة');
         }
+
+        console.log('📊 بيانات الجلسة:', sessionData);
+        console.log('🎮 معرف اللعبة من الجلسة:', sessionData.game_id);
+        console.log('🎯 معرف اللعبة الحالي:', currentGameId);
 
         // جلب بيانات اللعبة الصحيحة
         const { data: gameData, error: gameError } = await supabase
@@ -56,37 +51,29 @@ export const GameSessionValidator: React.FC<GameSessionValidatorProps> = ({
           .single();
 
         if (gameError) throw gameError;
-        if (!gameData) throw new Error('لم يتم العثور على بيانات اللعبة');
 
-        // التحقق من أن اللاعب ينتمي للجلسة
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error('المستخدم غير مصرح');
-        
-        if (sessionData.player1_id !== user.id && sessionData.player2_id !== user.id) {
-          console.error('❌ [VALIDATOR] اللاعب غير مخول للجلسة');
-          throw new Error('غير مخول للوصول لهذه المباراة');
+        if (!gameData) {
+          throw new Error('لم يتم العثور على بيانات اللعبة');
         }
 
-        // التحقق من حالة الجلسة
-        if (sessionData.status === 'completed') {
-          console.warn('⚠️ [VALIDATOR] الجلسة مكتملة بالفعل');
-          throw new Error('المباراة انتهت بالفعل');
+        // التحقق من التطابق
+        if (currentGameId && currentGameId !== sessionData.game_id) {
+          console.warn('⚠️ عدم تطابق معرفات الألعاب!');
+          console.warn('المتوقع:', sessionData.game_id, GAME_NAMES[sessionData.game_id as keyof typeof GAME_IDS]);
+          console.warn('الحالي:', currentGameId);
         }
 
-        console.log('✅ [VALIDATOR] تم التحقق بنجاح - اللعبة:', gameData.name);
-        console.log('✅ [VALIDATOR] اللاعبون:', sessionData.player1_id, 'vs', sessionData.player2_id);
-        console.log('✅ [VALIDATOR] الرهان:', sessionData.bet_amount, 'ج.م');
-        
+        console.log('✅ تم التحقق بنجاح - اللعبة:', gameData.name);
         onValidated(gameData);
 
       } catch (err: any) {
-        console.error('❌ [VALIDATOR] خطأ في التحقق:', err);
+        console.error('❌ خطأ في التحقق:', err);
         
         if (retryCount < MAX_RETRIES) {
-          console.log(`🔄 [VALIDATOR] إعادة المحاولة ${retryCount + 1}/${MAX_RETRIES}`);
+          console.log(`🔄 إعادة المحاولة ${retryCount + 1}/${MAX_RETRIES}`);
           setTimeout(() => {
             setRetryCount(prev => prev + 1);
-          }, 1000 * (retryCount + 1));
+          }, 1000 * (retryCount + 1)); // تأخير تصاعدي
         } else {
           setError(err.message || 'فشل التحقق من بيانات اللعبة');
           setTimeout(onError, 3000);

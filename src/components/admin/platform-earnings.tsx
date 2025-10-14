@@ -134,7 +134,7 @@ export const PlatformEarnings: React.FC = () => {
               <div>
                 <p className="text-sm text-green-600">الأرباح اليومية</p>
                 <p className="text-2xl font-bold text-green-800">
-                  {earnings.daily.toFixed(2)} ج.م
+                  {earnings.daily.toFixed(2)} ريال
                 </p>
               </div>
               <DollarSign className="h-8 w-8 text-green-600" />
@@ -148,7 +148,7 @@ export const PlatformEarnings: React.FC = () => {
               <div>
                 <p className="text-sm text-blue-600">الأرباح الأسبوعية</p>
                 <p className="text-2xl font-bold text-blue-800">
-                  {earnings.weekly.toFixed(2)} ج.م
+                  {earnings.weekly.toFixed(2)} ريال
                 </p>
               </div>
               <TrendingUp className="h-8 w-8 text-blue-600" />
@@ -162,7 +162,7 @@ export const PlatformEarnings: React.FC = () => {
               <div>
                 <p className="text-sm text-purple-600">الأرباح الشهرية</p>
                 <p className="text-2xl font-bold text-purple-800">
-                  {earnings.monthly.toFixed(2)} ج.م
+                  {earnings.monthly.toFixed(2)} ريال
                 </p>
               </div>
               <Calendar className="h-8 w-8 text-purple-600" />
@@ -232,12 +232,12 @@ export const PlatformEarnings: React.FC = () => {
                           </span>
                         </div>
                         <p className="text-sm">
-                          مبلغ الرهان: {transaction.total_bet_amount} ج.م
+                          مبلغ الرهان: {transaction.total_bet_amount} ريال
                         </p>
                       </div>
                       <div className="text-right">
                         <p className="font-bold text-green-600">
-                          +{parseFloat(transaction.earning_amount).toFixed(2)} ج.م
+                          +{parseFloat(transaction.earning_amount).toFixed(2)} ريال
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {transaction.earning_percentage}% عمولة
@@ -268,13 +268,13 @@ export const PlatformEarnings: React.FC = () => {
                     <div className="flex justify-between">
                       <span>متوسط الربح اليومي:</span>
                       <span className="font-medium">
-                        {(earnings.monthly / 30).toFixed(2)} ج.م
+                        {(earnings.monthly / 30).toFixed(2)} ريال
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span>متوسط الربح الأسبوعي:</span>
                       <span className="font-medium">
-                        {(earnings.monthly / 4).toFixed(2)} ج.م
+                        {(earnings.monthly / 4).toFixed(2)} ريال
                       </span>
                     </div>
                   </div>
@@ -289,7 +289,7 @@ export const PlatformEarnings: React.FC = () => {
                         {earnings.totalGames > 0 
                           ? (earnings.monthly / earnings.totalGames).toFixed(2) 
                           : '0.00'
-                        } ج.م
+                        } ريال
                       </span>
                     </div>
                     <div className="flex justify-between">
