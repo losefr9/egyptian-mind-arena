@@ -357,6 +357,87 @@ export const DominoArena: React.FC<DominoArenaProps> = ({
                 />
               </div>
             </div>
+
+            {/* لوحة الأوامر - تظهر عند اختيار قطعة */}
+            {selectedPiece && isMyTurn && (
+              <div className="mt-6 p-4 bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 rounded-xl border-2 border-primary/30 animate-in fade-in slide-in-from-bottom-4">
+                <div className="text-center mb-4">
+                  <p className="text-sm font-bold text-primary mb-1">✨ قطعة محددة</p>
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="px-3 py-1 bg-card rounded-lg border border-border">
+                      <span className="font-mono text-lg">{selectedPiece.left}</span>
+                    </div>
+                    <span className="text-muted-foreground">-</span>
+                    <div className="px-3 py-1 bg-card rounded-lg border border-border">
+                      <span className="font-mono text-lg">{selectedPiece.right}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {chain.length === 0 ? (
+                  // إذا كانت اللوحة فارغة
+                  <div className="flex justify-center">
+                    <Button
+                      onClick={() => handlePlacePiece('left')}
+                      size="lg"
+                      className="gap-2 bg-gradient-to-r from-success to-success/80 hover:from-success/90 hover:to-success/70 text-white shadow-lg"
+                    >
+                      <span className="text-xl">🎯</span>
+                      ضع القطعة وابدأ اللعب
+                    </Button>
+                  </div>
+                ) : (
+                  // إذا كانت هناك قطع على اللوحة
+                  <div className="flex gap-3 justify-center flex-wrap">
+                    {canPlaceLeft ? (
+                      <Button
+                        onClick={() => handlePlacePiece('left')}
+                        size="lg"
+                        className="gap-2 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-white shadow-lg min-w-[140px]"
+                      >
+                        <ArrowLeft className="h-5 w-5" />
+                        ضع يسار ({chain[0]?.left})
+                      </Button>
+                    ) : (
+                      <Button
+                        size="lg"
+                        disabled
+                        className="gap-2 min-w-[140px] opacity-40"
+                      >
+                        <ArrowLeft className="h-5 w-5" />
+                        يسار ✗
+                      </Button>
+                    )}
+
+                    {canPlaceRight ? (
+                      <Button
+                        onClick={() => handlePlacePiece('right')}
+                        size="lg"
+                        className="gap-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg min-w-[140px]"
+                      >
+                        ضع يمين ({chain[chain.length - 1]?.right})
+                        <ArrowRight className="h-5 w-5" />
+                      </Button>
+                    ) : (
+                      <Button
+                        size="lg"
+                        disabled
+                        className="gap-2 min-w-[140px] opacity-40"
+                      >
+                        يمين ✗
+                        <ArrowRight className="h-5 w-5" />
+                      </Button>
+                    )}
+                  </div>
+                )}
+
+                {!canPlaceLeft && !canPlaceRight && chain.length > 0 && (
+                  <p className="text-center text-sm text-destructive mt-3 font-medium">
+                    ⚠️ هذه القطعة لا يمكن وضعها - اختر قطعة أخرى أو اسحب من البونيارد
+                  </p>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

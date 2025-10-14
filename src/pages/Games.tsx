@@ -60,7 +60,7 @@ const Games = () => {
     setupPresenceTracking();
   }, []);
 
-  // ✅ CRITICAL: التحقق والمزامنة التلقائية - المصدر الوحيد للحقيقة هو game_id من قاعدة البيانات
+  // ✅ CRITICAL: التحقق والمزامنة التلقائية + إعادة تحميل الصفحة للتأكد من تحديث cache
   useEffect(() => {
     const verifyAndFetchGameData = async () => {
       if (currentGameSession && currentGameSession.game_id && viewState === 'verifying_data') {
@@ -97,6 +97,11 @@ const Games = () => {
           console.log('✅ [SYNC] تم التحقق - اللعبة من DB:', gameData.name, '| ID:', gameData.id);
           console.log('👥 [SYNC] اللاعبون:', player1Data?.[0]?.username, 'vs', player2Data?.[0]?.username);
           
+          // 🔄 حفظ بيانات الجلسة في sessionStorage لإعادة التحميل
+          sessionStorage.setItem('currentGameSession', JSON.stringify(currentGameSession));
+          sessionStorage.setItem('selectedGame', JSON.stringify(gameData));
+          sessionStorage.setItem('selectedBetAmount', String(currentGameSession.bet_amount));
+          
           setSelectedGame(gameData);
           
           // الانتقال لشاشة التحضير بعد 2 ثانية
@@ -117,6 +122,26 @@ const Games = () => {
 
     verifyAndFetchGameData();
   }, [currentGameSession?.game_id, viewState]);
+
+  // 🔄 استعادة الجلسة من sessionStorage عند تحميل الصفحة
+  useEffect(() => {
+    const savedSession = sessionStorage.getItem('currentGameSession');
+    const savedGame = sessionStorage.getItem('selectedGame');
+    const savedBetAmount = sessionStorage.getItem('selectedBetAmount');
+    
+    if (savedSession && savedGame && savedBetAmount) {
+      console.log('🔄 استعادة الجلسة من sessionStorage');
+      setCurrentGameSession(JSON.parse(savedSession));
+      setSelectedGame(JSON.parse(savedGame));
+      setSelectedBetAmount(Number(savedBetAmount));
+      setViewState('preparation');
+      
+      // مسح البيانات المحفوظة
+      sessionStorage.removeItem('currentGameSession');
+      sessionStorage.removeItem('selectedGame');
+      sessionStorage.removeItem('selectedBetAmount');
+    }
+  }, []);
 
   const setupPresenceTracking = () => {
     const channel = supabase.channel('online-players');

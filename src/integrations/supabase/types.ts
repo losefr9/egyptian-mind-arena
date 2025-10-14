@@ -328,6 +328,220 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_delivery: {
+        Row: {
+          clicked: boolean | null
+          delivered_at: string | null
+          id: string
+          notification_id: string | null
+          read_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          clicked?: boolean | null
+          delivered_at?: string | null
+          id?: string
+          notification_id?: string | null
+          read_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          clicked?: boolean | null
+          delivered_at?: string | null
+          id?: string
+          notification_id?: string | null
+          read_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_delivery_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_delivery_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          message: string
+          scheduled_for: string | null
+          sent_at: string | null
+          status: string | null
+          target_filters: Json | null
+          target_type: string
+          title: string
+          type: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          message: string
+          scheduled_for?: string | null
+          sent_at?: string | null
+          status?: string | null
+          target_filters?: Json | null
+          target_type: string
+          title: string
+          type: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          message?: string
+          scheduled_for?: string | null
+          sent_at?: string | null
+          status?: string | null
+          target_filters?: Json | null
+          target_type?: string
+          title?: string
+          type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_gateway_stats: {
+        Row: {
+          avg_processing_time_minutes: number | null
+          failed_transactions: number | null
+          gateway_id: string | null
+          id: string
+          last_updated: string | null
+          successful_transactions: number | null
+          total_amount: number | null
+          total_fees: number | null
+          total_transactions: number | null
+        }
+        Insert: {
+          avg_processing_time_minutes?: number | null
+          failed_transactions?: number | null
+          gateway_id?: string | null
+          id?: string
+          last_updated?: string | null
+          successful_transactions?: number | null
+          total_amount?: number | null
+          total_fees?: number | null
+          total_transactions?: number | null
+        }
+        Update: {
+          avg_processing_time_minutes?: number | null
+          failed_transactions?: number | null
+          gateway_id?: string | null
+          id?: string
+          last_updated?: string | null
+          successful_transactions?: number | null
+          total_amount?: number | null
+          total_fees?: number | null
+          total_transactions?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_gateway_stats_gateway_id_fkey"
+            columns: ["gateway_id"]
+            isOneToOne: false
+            referencedRelation: "payment_gateways"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_gateways: {
+        Row: {
+          account_details: Json
+          created_at: string | null
+          fees_percentage: number | null
+          id: string
+          instructions: string | null
+          is_active: boolean | null
+          max_amount: number | null
+          min_amount: number | null
+          name: string
+          processing_time: string | null
+          type: string
+          updated_at: string | null
+        }
+        Insert: {
+          account_details?: Json
+          created_at?: string | null
+          fees_percentage?: number | null
+          id?: string
+          instructions?: string | null
+          is_active?: boolean | null
+          max_amount?: number | null
+          min_amount?: number | null
+          name: string
+          processing_time?: string | null
+          type: string
+          updated_at?: string | null
+        }
+        Update: {
+          account_details?: Json
+          created_at?: string | null
+          fees_percentage?: number | null
+          id?: string
+          instructions?: string | null
+          is_active?: boolean | null
+          max_amount?: number | null
+          min_amount?: number | null
+          name?: string
+          processing_time?: string | null
+          type?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      payment_message_templates: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          title: string
+          type: string
+          updated_at: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          title: string
+          type: string
+          updated_at?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          title?: string
+          type?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       pending_moves: {
         Row: {
           cell_index: number
