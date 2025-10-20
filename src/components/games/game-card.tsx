@@ -2,6 +2,10 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Users, Gamepad2 } from 'lucide-react';
+import xoGameHero from '@/assets/xo-game-hero.jpg';
+import dominoGameHero from '@/assets/domino-game-hero.jpg';
+import ludoGameHero from '@/assets/ludo-game-hero.jpg';
+import chessGameHero from '@/assets/chess-game-hero.jpg';
 
 interface GameCardProps {
   game: {
@@ -15,6 +19,15 @@ interface GameCardProps {
 }
 
 export const GameCard: React.FC<GameCardProps> = ({ game, onClick }) => {
+  // استخدام الصور المحلية بناءً على معرف اللعبة
+  const getGameImage = () => {
+    if (game.image_url?.includes('xo-game-hero')) return xoGameHero;
+    if (game.image_url?.includes('domino-game-hero')) return dominoGameHero;
+    if (game.image_url?.includes('ludo-game-hero')) return ludoGameHero;
+    if (game.image_url?.includes('chess-game-hero')) return chessGameHero;
+    return game.image_url;
+  };
+
   return (
     <Card 
       className="bg-gradient-to-br from-card to-card/80 border-border/50 hover:shadow-golden transition-all duration-300 cursor-pointer group overflow-hidden"
@@ -34,7 +47,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game, onClick }) => {
         {game.image_url ? (
           <div className="aspect-video w-full rounded-lg overflow-hidden mb-4 relative group">
             <img 
-              src={game.image_url} 
+              src={getGameImage()} 
               alt={game.name}
               className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
             />
