@@ -6,7 +6,7 @@ import { DominoBoard } from './domino-board';
 import { DominoHand } from './domino-hand';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { ArrowLeft, Download, Trophy } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Download, Trophy } from 'lucide-react';
 
 interface DominoArenaProps {
   sessionId: string;

@@ -12,7 +12,6 @@ export default defineConfig(({ mode }) => ({
       strict: false,
     },
   },
-  cacheDir: '.vite',
   plugins: [
     react(), 
     mode === "development" && componentTagger()
@@ -28,7 +27,7 @@ export default defineConfig(({ mode }) => ({
   },
   optimizeDeps: {
     include: ["react", "react-dom"],
-    force: true,
+    exclude: ["@radix-ui/react-tooltip"],
     esbuildOptions: {
       resolveExtensions: ['.tsx', '.ts', '.jsx', '.js'],
     },
