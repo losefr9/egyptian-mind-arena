@@ -61,15 +61,40 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
     const piece = board[row][col];
 
     if (selectedSquare) {
+      // محاولة تنفيذ الحركة
       const success = await onMove(selectedSquare, squareName);
-      setSelectedSquare(null);
-      setHighlightedSquares([]);
+      
+      // إذا نجحت الحركة، إلغاء التحديد
+      if (success) {
+        setSelectedSquare(null);
+        setHighlightedSquares([]);
+      } else {
+        // إذا فشلت الحركة، التحقق من إمكانية تحديد قطعة جديدة
+        if (piece) {
+          const myColor = orientation === 'white' ? 'w' : 'b';
+          if (piece.startsWith(myColor)) {
+            setSelectedSquare(squareName);
+            const tempChess = new Chess(position);
+            const moves = tempChess.moves({ square: squareName as any, verbose: true }) as any[];
+            const possibleSquares = moves.map((move: any) => move.to);
+            setHighlightedSquares([squareName, ...possibleSquares]);
+          } else {
+            // إلغاء التحديد إذا نقر على قطعة الخصم
+            setSelectedSquare(null);
+            setHighlightedSquares([]);
+          }
+        } else {
+          // إلغاء التحديد إذا نقر على مربع فارغ بحركة غير صحيحة
+          setSelectedSquare(null);
+          setHighlightedSquares([]);
+        }
+      }
     } else if (piece) {
       const myColor = orientation === 'white' ? 'w' : 'b';
       if (piece.startsWith(myColor)) {
         setSelectedSquare(squareName);
         
-        // ✅ حساب كل الحركات الممكنة من هذه القطعة
+        // حساب كل الحركات الممكنة من هذه القطعة
         const tempChess = new Chess(position);
         const moves = tempChess.moves({ square: squareName as any, verbose: true }) as any[];
         const possibleSquares = moves.map((move: any) => move.to);
