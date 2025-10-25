@@ -92,45 +92,30 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
 
         setHighlightedSquares([squareName, ...possibleSquares]);
       } else {
-        console.log('🔍 Checking if move is valid. highlightedSquares:', highlightedSquares, 'includes:', squareName, '=', highlightedSquares.includes(squareName));
-
         if (highlightedSquares.includes(squareName)) {
-          console.log('✅ Valid move detected!');
-
           if (isPromotionMove(selectedSquare, squareName)) {
-            console.log('👑 Promotion move - showing dialog');
             setPromotionDialog({ show: true, from: selectedSquare, to: squareName });
           } else {
-            console.log('🚀 Executing normal move from', selectedSquare, 'to', squareName);
             const success = await onMove(selectedSquare, squareName);
-            console.log('📊 Move execution result:', success);
 
             if (success) {
-              console.log('✅ Move successful - clearing selection');
               setSelectedSquare(null);
               setHighlightedSquares([]);
-            } else {
-              console.log('❌ Move failed - keeping selection');
             }
           }
         } else {
-          console.log('❌ Invalid square - deselecting');
           setSelectedSquare(null);
           setHighlightedSquares([]);
         }
       }
     } else if (piece && piece.startsWith(myColor)) {
-      console.log('✨ Selecting new piece:', piece, 'at', squareName);
       setSelectedSquare(squareName);
 
       const tempChess = new Chess(position);
       const moves = tempChess.moves({ square: squareName as any, verbose: true }) as any[];
       const possibleSquares = moves.map((move: any) => move.to);
 
-      console.log('📋 Possible moves:', possibleSquares);
       setHighlightedSquares([squareName, ...possibleSquares]);
-    } else {
-      console.log('⚠️ Clicked empty square or opponent piece with no selection');
     }
   };
 

@@ -128,11 +128,8 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
     setCapturedPieces(captured);
   };
 
-  const handleMove = async (from: string, to: string, promotion: string = 'q') => {
-    console.log('🎮 handleMove called:', { from, to, promotion, isMyTurn, currentUserId, currentTurn });
-
+  const handleMove = async (from: string, to: string, promotion?: string) => {
     if (!isMyTurn) {
-      console.log('❌ Not your turn');
       toast({
         title: "ليس دورك",
         description: "انتظر دورك للعب",
@@ -142,17 +139,18 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
     }
 
     try {
-      console.log('📋 Current board state before move:', chess.fen());
-      const move = chess.move({ from, to, promotion });
-      console.log('✅ Move result from chess.js:', move);
+      const moveOptions: any = { from, to };
+      if (promotion) {
+        moveOptions.promotion = promotion;
+      }
+
+      const move = chess.move(moveOptions);
 
       if (!move) {
-        console.log('❌ Invalid move - chess.js rejected it');
         return false;
       }
 
       const newBoardState = chess.fen();
-      console.log('📋 New board state after move:', newBoardState);
 
       const moveData = {
         from,
@@ -165,7 +163,6 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
         timestamp: new Date().toISOString()
       };
 
-      console.log('📤 Sending to server:', { sessionId, currentUserId, moveData });
       const { data, error } = await supabase.rpc('make_chess_move', {
         p_game_session_id: sessionId,
         p_player_id: currentUserId,
@@ -175,10 +172,7 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
         p_move_data: moveData
       });
 
-      console.log('📥 Server response:', { data, error });
-
       if (error) {
-        console.error('❌ Server error:', error);
         chess.undo();
         toast({
           title: "خطأ",
@@ -191,7 +185,6 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
       setMoveCount(prev => prev + 1);
 
       if (!gameStarted) {
-        console.log('🎬 Starting game timer');
         setGameStarted(true);
       }
 
@@ -202,10 +195,9 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
         await handleGameEnd('draw');
       }
 
-      console.log('✅ Move completed successfully');
       return true;
     } catch (error) {
-      console.error('💥 Exception in handleMove:', error);
+      console.error('Error making move:', error);
       return false;
     }
   };
