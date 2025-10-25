@@ -26,6 +26,8 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
   const [highlightedSquares, setHighlightedSquares] = useState<string[]>([]);
   const [promotionDialog, setPromotionDialog] = useState<{ show: boolean; from: string; to: string } | null>(null);
 
+  console.log('♟️ ChessBoard rendered - orientation:', orientation, '| isMyTurn:', isMyTurn);
+
   const parseFEN = (fen: string) => {
     const board: (string | null)[][] = Array(8).fill(null).map(() => Array(8).fill(null));
     const rows = fen.split(' ')[0].split('/');

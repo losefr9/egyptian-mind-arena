@@ -42,11 +42,32 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
 
   const isMyTurn = currentTurn === currentUserId;
   const myColor = currentUserId === player1Id ? 'white' : 'black';
+  const amIPlayer1 = currentUserId === player1Id;
+
+  // ترتيب عرض اللاعبين: اللاعب الحالي دائماً في الأسفل
+  const topPlayerName = amIPlayer1 ? player2Name : player1Name;
+  const topPlayerId = amIPlayer1 ? player2Id : player1Id;
+  const topPlayerTime = amIPlayer1 ? player2Time : player1Time;
+  const topPlayerColor = amIPlayer1 ? 'القطع السوداء' : 'القطع البيضاء';
+
+  const bottomPlayerName = amIPlayer1 ? player1Name : player2Name;
+  const bottomPlayerId = amIPlayer1 ? player1Id : player2Id;
+  const bottomPlayerTime = amIPlayer1 ? player1Time : player2Time;
+  const bottomPlayerColor = amIPlayer1 ? 'القطع البيضاء' : 'القطع السوداء';
 
   useEffect(() => {
     fetchPlayerNames();
     setupRealtimeSubscription();
     loadMatchState();
+
+    console.log('🎮 Chess Arena Initialized:', {
+      currentUserId,
+      player1Id,
+      player2Id,
+      myColor,
+      amIPlayer1,
+      orientation: myColor
+    });
   }, []);
 
   const fetchPlayerNames = async () => {
@@ -372,30 +393,30 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
         <div className="grid lg:grid-cols-[1fr_380px] gap-6">
           {/* Main Board */}
           <div className="space-y-4">
-            {/* Player 2 Info - Enhanced */}
+            {/* Top Player (Opponent) - Enhanced */}
             <Card className="p-4 bg-gradient-to-r from-card/95 to-card/80 backdrop-blur-xl border-border/50 hover:border-primary/30 transition-all duration-300">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="relative">
                     <div className="h-12 w-12 rounded-full bg-gradient-to-br from-secondary via-secondary/80 to-accent flex items-center justify-center text-white font-bold text-lg shadow-lg ring-2 ring-background/50">
-                      {player2Name[0]}
+                      {topPlayerName[0]}
                     </div>
-                    {currentTurn === player2Id && (
+                    {currentTurn === topPlayerId && (
                       <div className="absolute -top-1 -right-1 h-4 w-4 bg-success rounded-full animate-pulse ring-2 ring-background" />
                     )}
                   </div>
                   <div>
-                    <div className="font-bold text-lg">{player2Name}</div>
+                    <div className="font-bold text-lg">{topPlayerName}</div>
                     <div className="text-xs text-muted-foreground flex items-center gap-1">
-                      <div className="h-2 w-2 rounded-full bg-foreground/80" />
-                      القطع السوداء
+                      <div className={`h-2 w-2 rounded-full ${amIPlayer1 ? 'bg-foreground/80' : 'bg-foreground/20'}`} />
+                      {topPlayerColor}
                     </div>
                   </div>
                 </div>
                 <ChessTimer
-                  timeInSeconds={player2Time}
-                  isActive={gameStarted && currentTurn === player2Id}
-                  onTimeUpdate={(time) => setPlayer2Time(time)}
+                  timeInSeconds={topPlayerTime}
+                  isActive={gameStarted && currentTurn === topPlayerId}
+                  onTimeUpdate={(time) => amIPlayer1 ? setPlayer2Time(time) : setPlayer1Time(time)}
                 />
               </div>
             </Card>
@@ -413,30 +434,30 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
               </div>
             </div>
 
-            {/* Player 1 Info - Enhanced */}
-            <Card className="p-4 bg-gradient-to-r from-card/95 to-card/80 backdrop-blur-xl border-border/50 hover:border-primary/30 transition-all duration-300">
+            {/* Bottom Player (Me) - Enhanced */}
+            <Card className="p-4 bg-gradient-to-r from-card/95 to-card/80 backdrop-blur-xl border-border/50 hover:border-primary/30 transition-all duration-300 ring-2 ring-primary/30">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="relative">
                     <div className="h-12 w-12 rounded-full bg-gradient-to-br from-primary via-primary/90 to-primary-glow flex items-center justify-center text-primary-foreground font-bold text-lg shadow-lg ring-2 ring-background/50">
-                      {player1Name[0]}
+                      {bottomPlayerName[0]}
                     </div>
-                    {currentTurn === player1Id && (
+                    {currentTurn === bottomPlayerId && (
                       <div className="absolute -top-1 -right-1 h-4 w-4 bg-success rounded-full animate-pulse ring-2 ring-background" />
                     )}
                   </div>
                   <div>
-                    <div className="font-bold text-lg">{player1Name}</div>
+                    <div className="font-bold text-lg">{bottomPlayerName} (أنت)</div>
                     <div className="text-xs text-muted-foreground flex items-center gap-1">
-                      <div className="h-2 w-2 rounded-full bg-foreground/20" />
-                      القطع البيضاء
+                      <div className={`h-2 w-2 rounded-full ${amIPlayer1 ? 'bg-foreground/20' : 'bg-foreground/80'}`} />
+                      {bottomPlayerColor}
                     </div>
                   </div>
                 </div>
                 <ChessTimer
-                  timeInSeconds={player1Time}
-                  isActive={gameStarted && currentTurn === player1Id}
-                  onTimeUpdate={(time) => setPlayer1Time(time)}
+                  timeInSeconds={bottomPlayerTime}
+                  isActive={gameStarted && currentTurn === bottomPlayerId}
+                  onTimeUpdate={(time) => amIPlayer1 ? setPlayer1Time(time) : setPlayer2Time(time)}
                 />
               </div>
             </Card>
