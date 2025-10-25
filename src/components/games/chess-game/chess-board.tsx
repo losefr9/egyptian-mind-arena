@@ -27,6 +27,12 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
   const [promotionDialog, setPromotionDialog] = useState<{ show: boolean; from: string; to: string } | null>(null);
 
   console.log('♟️ ChessBoard rendered - orientation:', orientation, '| isMyTurn:', isMyTurn);
+  console.log('🗺️ Board mapping test:', {
+    topLeft_0_0: getSquareName(0, 0),
+    topRight_0_7: getSquareName(0, 7),
+    bottomLeft_7_0: getSquareName(7, 0),
+    bottomRight_7_7: getSquareName(7, 7)
+  });
 
   const parseFEN = (fen: string) => {
     const board: (string | null)[][] = Array(8).fill(null).map(() => Array(8).fill(null));
@@ -50,13 +56,25 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
   };
 
   const board = parseFEN(position);
-  const files = orientation === 'white' ? ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'] : ['h', 'g', 'f', 'e', 'd', 'c', 'b', 'a'];
-  const ranks = orientation === 'white' ? ['8', '7', '6', '5', '4', '3', '2', '1'] : ['1', '2', '3', '4', '5', '6', '7', '8'];
 
-  const getSquareName = (row: number, col: number): string => {
-    const file = files[col];
-    const rank = ranks[row];
-    return file + rank;
+  const getBoardIndex = (displayRow: number, displayCol: number): { fenRow: number; fenCol: number } => {
+    if (orientation === 'white') {
+      return { fenRow: displayRow, fenCol: displayCol };
+    } else {
+      return { fenRow: 7 - displayRow, fenCol: 7 - displayCol };
+    }
+  };
+
+  const getPieceAt = (displayRow: number, displayCol: number): string | null => {
+    const { fenRow, fenCol } = getBoardIndex(displayRow, displayCol);
+    return board[fenRow][fenCol];
+  };
+
+  const getSquareName = (displayRow: number, displayCol: number): string => {
+    const { fenRow, fenCol } = getBoardIndex(displayRow, displayCol);
+    const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+    const ranks = ['8', '7', '6', '5', '4', '3', '2', '1'];
+    return files[fenCol] + ranks[fenRow];
   };
 
   const isPromotionMove = (from: string, to: string): boolean => {
@@ -76,7 +94,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
     }
 
     const squareName = getSquareName(row, col);
-    const piece = board[row][col];
+    const piece = getPieceAt(row, col);
     const myColor = orientation === 'white' ? 'w' : 'b';
 
     console.log('🎯 Square clicked:', {
@@ -160,10 +178,10 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
     <Card className="p-2 sm:p-4 bg-gradient-to-br from-card/90 to-card/70 backdrop-blur-xl border-primary/20 shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
       <div className="aspect-square w-full max-w-[95vw] sm:max-w-[600px] mx-auto">
         <div className="grid grid-cols-8 gap-0 h-full border-2 sm:border-4 border-primary/30 rounded-lg sm:rounded-xl overflow-hidden shadow-2xl touch-none">
-          {ranks.map((rank, row) =>
-            files.map((file, col) => {
+          {Array.from({ length: 8 }, (_, row) =>
+            Array.from({ length: 8 }, (_, col) => {
               const squareName = getSquareName(row, col);
-              const piece = board[row][col];
+              const piece = getPieceAt(row, col);
               const isLight = isSquareLight(row, col);
               const isSelected = selectedSquare === squareName;
               const isHighlighted = highlightedSquares.includes(squareName);
@@ -219,12 +237,12 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
                   {/* Square coordinates - hidden on very small screens */}
                   {col === 0 && (
                     <span className="hidden sm:block absolute top-0.5 left-0.5 sm:top-1 sm:left-1 text-[8px] sm:text-[10px] font-bold text-foreground/60 drop-shadow-sm pointer-events-none">
-                      {rank}
+                      {squareName[1]}
                     </span>
                   )}
                   {row === 7 && (
                     <span className="hidden sm:block absolute bottom-0.5 right-0.5 sm:bottom-1 sm:right-1 text-[8px] sm:text-[10px] font-bold text-foreground/60 drop-shadow-sm pointer-events-none">
-                      {file}
+                      {squareName[0]}
                     </span>
                   )}
 
