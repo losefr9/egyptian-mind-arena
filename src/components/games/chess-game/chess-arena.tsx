@@ -119,7 +119,7 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
     setCapturedPieces(captured);
   };
 
-  const handleMove = async (from: string, to: string) => {
+  const handleMove = async (from: string, to: string, promotion: string = 'q') => {
     if (!isMyTurn) {
       toast({
         title: "ليس دورك",
@@ -130,7 +130,7 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
     }
 
     try {
-      const move = chess.move({ from, to, promotion: 'q' });
+      const move = chess.move({ from, to, promotion });
       if (!move) return false;
 
       const newBoardState = chess.fen();

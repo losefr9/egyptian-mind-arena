@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Chess } from 'chess.js';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 interface ChessBoardProps {
   position: string;
-  onMove: (from: string, to: string) => Promise<boolean>;
+  onMove: (from: string, to: string, promotion?: string) => Promise<boolean>;
   orientation: 'white' | 'black';
   isMyTurn: boolean;
 }
@@ -22,6 +24,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
 }) => {
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
   const [highlightedSquares, setHighlightedSquares] = useState<string[]>([]);
+  const [promotionDialog, setPromotionDialog] = useState<{ show: boolean; from: string; to: string } | null>(null);
 
   const parseFEN = (fen: string) => {
     const board: (string | null)[][] = Array(8).fill(null).map(() => Array(8).fill(null));
@@ -54,29 +57,67 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
     return file + rank;
   };
 
+  const isPromotionMove = (from: string, to: string): boolean => {
+    const tempChess = new Chess(position);
+    const piece = tempChess.get(from as any);
+
+    if (!piece || piece.type !== 'p') return false;
+
+    const toRank = to[1];
+    return (piece.color === 'w' && toRank === '8') || (piece.color === 'b' && toRank === '1');
+  };
+
   const handleSquareClick = async (row: number, col: number) => {
     if (!isMyTurn) return;
 
     const squareName = getSquareName(row, col);
     const piece = board[row][col];
+    const myColor = orientation === 'white' ? 'w' : 'b';
 
     if (selectedSquare) {
-      const success = await onMove(selectedSquare, squareName);
-      setSelectedSquare(null);
-      setHighlightedSquares([]);
-    } else if (piece) {
-      const myColor = orientation === 'white' ? 'w' : 'b';
-      if (piece.startsWith(myColor)) {
+      if (piece && piece.startsWith(myColor)) {
         setSelectedSquare(squareName);
-        
-        // ✅ حساب كل الحركات الممكنة من هذه القطعة
+
         const tempChess = new Chess(position);
         const moves = tempChess.moves({ square: squareName as any, verbose: true }) as any[];
         const possibleSquares = moves.map((move: any) => move.to);
-        
-        // إضافة المربع المحدد نفسه + كل المربعات الممكنة
+
         setHighlightedSquares([squareName, ...possibleSquares]);
+      } else {
+        if (highlightedSquares.includes(squareName)) {
+          if (isPromotionMove(selectedSquare, squareName)) {
+            setPromotionDialog({ show: true, from: selectedSquare, to: squareName });
+          } else {
+            const success = await onMove(selectedSquare, squareName);
+            if (success) {
+              setSelectedSquare(null);
+              setHighlightedSquares([]);
+            }
+          }
+        } else {
+          setSelectedSquare(null);
+          setHighlightedSquares([]);
+        }
       }
+    } else if (piece && piece.startsWith(myColor)) {
+      setSelectedSquare(squareName);
+
+      const tempChess = new Chess(position);
+      const moves = tempChess.moves({ square: squareName as any, verbose: true }) as any[];
+      const possibleSquares = moves.map((move: any) => move.to);
+
+      setHighlightedSquares([squareName, ...possibleSquares]);
+    }
+  };
+
+  const handlePromotion = async (piece: string) => {
+    if (!promotionDialog) return;
+
+    const success = await onMove(promotionDialog.from, promotionDialog.to, piece);
+    if (success) {
+      setSelectedSquare(null);
+      setHighlightedSquares([]);
+      setPromotionDialog(null);
     }
   };
 
@@ -184,6 +225,35 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
           </span>
         </div>
       )}
+
+      {/* Promotion Dialog */}
+      <Dialog open={promotionDialog?.show || false} onOpenChange={() => setPromotionDialog(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogTitle className="text-center text-xl font-bold">اختر قطعة للترقية</DialogTitle>
+          <div className="grid grid-cols-4 gap-4 mt-4">
+            {['q', 'r', 'b', 'n'].map((piece) => {
+              const pieceSymbol = orientation === 'white'
+                ? PIECE_UNICODE[('w' + piece.toUpperCase()) as keyof typeof PIECE_UNICODE]
+                : PIECE_UNICODE[('b' + piece.toUpperCase()) as keyof typeof PIECE_UNICODE];
+              const pieceName = piece === 'q' ? 'وزير' : piece === 'r' ? 'رخ' : piece === 'b' ? 'فيل' : 'حصان';
+
+              return (
+                <Button
+                  key={piece}
+                  onClick={() => handlePromotion(piece)}
+                  className="h-24 text-6xl hover:scale-110 transition-transform"
+                  variant="outline"
+                >
+                  <div className="flex flex-col items-center gap-2">
+                    <span>{pieceSymbol}</span>
+                    <span className="text-xs">{pieceName}</span>
+                  </div>
+                </Button>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };
