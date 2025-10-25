@@ -57,23 +57,78 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
   };
 
   const loadMatchState = async () => {
-    const { data, error } = await supabase
-      .from('chess_matches')
-      .select('*')
-      .eq('game_session_id', sessionId)
-      .single();
+    try {
+      let { data, error } = await supabase
+        .from('chess_matches')
+        .select('*')
+        .eq('game_session_id', sessionId)
+        .maybeSingle();
 
-    if (data && !error) {
-      chess.load(data.board_state);
-      setBoardState(data.board_state);
-      setPlayer1Time(data.player1_time_remaining);
-      setPlayer2Time(data.player2_time_remaining);
-      setCurrentTurn(data.current_turn_player_id);
-      updateCapturedPieces(data.move_history || []);
-
-      if (data.move_history && Array.isArray(data.move_history) && data.move_history.length > 0) {
-        setGameStarted(true);
+      if (error) {
+        console.error('Error loading chess match:', error);
+        toast({
+          title: "خطأ في تحميل المباراة",
+          description: error.message,
+          variant: "destructive"
+        });
+        return;
       }
+
+      if (!data) {
+        console.log('No chess match found, creating one...');
+        const { data: newMatch, error: createError } = await supabase
+          .from('chess_matches')
+          .insert({
+            game_session_id: sessionId,
+            board_state: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+            player1_time_remaining: 600,
+            player2_time_remaining: 600,
+            current_turn_player_id: player1Id,
+            match_status: 'playing',
+            move_history: []
+          })
+          .select()
+          .single();
+
+        if (createError) {
+          console.error('Error creating chess match:', createError);
+          toast({
+            title: "خطأ في إنشاء المباراة",
+            description: createError.message,
+            variant: "destructive"
+          });
+          return;
+        }
+
+        data = newMatch;
+        console.log('Chess match created successfully:', data);
+      }
+
+      if (data) {
+        chess.load(data.board_state);
+        setBoardState(data.board_state);
+        setPlayer1Time(data.player1_time_remaining);
+        setPlayer2Time(data.player2_time_remaining);
+        setCurrentTurn(data.current_turn_player_id);
+        updateCapturedPieces(data.move_history || []);
+
+        if (data.move_history && Array.isArray(data.move_history) && data.move_history.length > 0) {
+          setGameStarted(true);
+        }
+
+        console.log('Chess match loaded:', {
+          boardState: data.board_state,
+          currentTurn: data.current_turn_player_id,
+          moveCount: data.move_history?.length || 0
+        });
+      }
+    } catch (error) {
+      console.error('Exception in loadMatchState:', error);
+      toast({
+        title: "خطأ",
+        description: "فشل في تحميل حالة المباراة",
+        variant: "destructive"
+      });
     }
   };
 
@@ -130,6 +185,7 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
 
   const handleMove = async (from: string, to: string, promotion?: string) => {
     if (!isMyTurn) {
+      console.log('Not your turn - blocking move');
       toast({
         title: "ليس دورك",
         description: "انتظر دورك للعب",
@@ -139,6 +195,8 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
     }
 
     try {
+      console.log('Attempting move:', { from, to, promotion, currentTurn, myId: currentUserId });
+
       const moveOptions: any = { from, to };
       if (promotion) {
         moveOptions.promotion = promotion;
@@ -147,9 +205,16 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
       const move = chess.move(moveOptions);
 
       if (!move) {
+        console.log('Invalid move rejected by chess.js');
+        toast({
+          title: "حركة غير صالحة",
+          description: "هذه الحركة غير مسموح بها",
+          variant: "destructive"
+        });
         return false;
       }
 
+      console.log('Move validated by chess.js:', move);
       const newBoardState = chess.fen();
 
       const moveData = {
@@ -163,6 +228,7 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
         timestamp: new Date().toISOString()
       };
 
+      console.log('Sending move to server...');
       const { data, error } = await supabase.rpc('make_chess_move', {
         p_game_session_id: sessionId,
         p_player_id: currentUserId,
@@ -173,31 +239,54 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
       });
 
       if (error) {
+        console.error('Server rejected move:', error);
         chess.undo();
         toast({
-          title: "خطأ",
-          description: "فشل في تنفيذ الحركة",
+          title: "خطأ في الخادم",
+          description: error.message || "فشل في تنفيذ الحركة",
           variant: "destructive"
         });
         return false;
       }
 
+      console.log('Move accepted by server:', data);
       setMoveCount(prev => prev + 1);
 
       if (!gameStarted) {
         setGameStarted(true);
       }
 
+      toast({
+        title: "حركة ناجحة",
+        description: `تم تحريك القطعة من ${from} إلى ${to}`,
+        duration: 1500
+      });
+
       if (chess.isCheckmate()) {
+        console.log('Checkmate detected!');
         await supabase.from('chess_matches').update({ match_status: 'checkmate' }).eq('game_session_id', sessionId);
         await handleGameEnd('checkmate');
+      } else if (chess.isCheck()) {
+        console.log('Check!');
+        toast({
+          title: "كش!",
+          description: "الملك في خطر",
+          duration: 2000
+        });
       } else if (chess.isStalemate() || chess.isDraw()) {
+        console.log('Draw/Stalemate detected');
         await handleGameEnd('draw');
       }
 
       return true;
     } catch (error) {
-      console.error('Error making move:', error);
+      console.error('Exception in handleMove:', error);
+      chess.undo();
+      toast({
+        title: "خطأ",
+        description: "حدث خطأ غير متوقع",
+        variant: "destructive"
+      });
       return false;
     }
   };
@@ -225,11 +314,23 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
   };
 
   const handleTimeUpdate = async (p1Time: number, p2Time: number) => {
-    await supabase.rpc('update_chess_timer', {
-      p_game_session_id: sessionId,
-      p_player1_time: p1Time,
-      p_player2_time: p2Time
-    });
+    if (p1Time <= 0 || p2Time <= 0) {
+      console.log('Time expired!', { p1Time, p2Time });
+      await supabase.rpc('update_chess_timer', {
+        p_game_session_id: sessionId,
+        p_player1_time: Math.max(0, p1Time),
+        p_player2_time: Math.max(0, p2Time)
+      });
+      return;
+    }
+
+    if (moveCount > 0 && (moveCount % 5 === 0 || p1Time <= 60 || p2Time <= 60)) {
+      await supabase.rpc('update_chess_timer', {
+        p_game_session_id: sessionId,
+        p_player1_time: p1Time,
+        p_player2_time: p2Time
+      });
+    }
   };
 
   return (

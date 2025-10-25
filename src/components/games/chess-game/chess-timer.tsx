@@ -19,7 +19,12 @@ export const ChessTimer: React.FC<ChessTimerProps> = ({
   }, [timeInSeconds]);
 
   useEffect(() => {
-    if (!isActive || localTime <= 0) return;
+    if (!isActive || localTime <= 0) {
+      if (localTime === 0 && isActive) {
+        onTimeUpdate(0);
+      }
+      return;
+    }
 
     const interval = setInterval(() => {
       setLocalTime(prev => {
