@@ -29,7 +29,7 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
 }) => {
   const [chess] = useState(new Chess());
   const [boardState, setBoardState] = useState(chess.fen());
-  const [player1Time, setPlayer1Time] = useState(600); // 10 minutes
+  const [player1Time, setPlayer1Time] = useState(600);
   const [player2Time, setPlayer2Time] = useState(600);
   const [currentTurn, setCurrentTurn] = useState<string>(player1Id);
   const [capturedPieces, setCapturedPieces] = useState<{ white: string[], black: string[] }>({ white: [], black: [] });
@@ -37,6 +37,7 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
   const [player2Name, setPlayer2Name] = useState('');
   const [gameEndState, setGameEndState] = useState<{ show: boolean; result: 'win' | 'lose' | 'draw'; prize: number; winnerId: string | null } | null>(null);
   const [moveCount, setMoveCount] = useState(0);
+  const [gameStarted, setGameStarted] = useState(false);
   const { toast } = useToast();
 
   const isMyTurn = currentTurn === currentUserId;
@@ -69,6 +70,10 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
       setPlayer2Time(data.player2_time_remaining);
       setCurrentTurn(data.current_turn_player_id);
       updateCapturedPieces(data.move_history || []);
+
+      if (data.move_history && Array.isArray(data.move_history) && data.move_history.length > 0) {
+        setGameStarted(true);
+      }
     }
   };
 
@@ -91,6 +96,10 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
           setPlayer2Time(newData.player2_time_remaining);
           setCurrentTurn(newData.current_turn_player_id);
           updateCapturedPieces(newData.move_history || []);
+
+          if (newData.move_history && Array.isArray(newData.move_history) && newData.move_history.length > 0) {
+            setGameStarted(true);
+          }
 
           if (newData.match_status === 'checkmate' || newData.match_status === 'timeout') {
             handleGameEnd(newData.match_status);
@@ -131,7 +140,10 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
 
     try {
       const move = chess.move({ from, to, promotion });
-      if (!move) return false;
+
+      if (!move) {
+        return false;
+      }
 
       const newBoardState = chess.fen();
       const moveData = {
@@ -166,7 +178,10 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
 
       setMoveCount(prev => prev + 1);
 
-      // Check for checkmate or stalemate
+      if (!gameStarted) {
+        setGameStarted(true);
+      }
+
       if (chess.isCheckmate()) {
         await supabase.from('chess_matches').update({ match_status: 'checkmate' }).eq('game_session_id', sessionId);
         await handleGameEnd('checkmate');
@@ -272,7 +287,7 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
                 </div>
                 <ChessTimer
                   timeInSeconds={player2Time}
-                  isActive={currentTurn === player2Id}
+                  isActive={gameStarted && currentTurn === player2Id}
                   onTimeUpdate={(time) => setPlayer2Time(time)}
                 />
               </div>
@@ -313,7 +328,7 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
                 </div>
                 <ChessTimer
                   timeInSeconds={player1Time}
-                  isActive={currentTurn === player1Id}
+                  isActive={gameStarted && currentTurn === player1Id}
                   onTimeUpdate={(time) => setPlayer1Time(time)}
                 />
               </div>
@@ -344,6 +359,13 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
                 {chess.isCheck() && (
                   <div className="text-center py-3 px-4 bg-gradient-to-r from-destructive/20 to-destructive/10 text-destructive rounded-xl font-bold border border-destructive/30 animate-pulse">
                     ⚠️ كش! احذر الملك
+                  </div>
+                )}
+                {!gameStarted && (
+                  <div className="mt-4 p-4 bg-gradient-to-br from-amber-500/10 to-amber-500/5 rounded-lg border border-amber-500/30">
+                    <p className="text-sm text-center text-amber-600 dark:text-amber-400 font-semibold">
+                      ⏸️ المؤقت سيبدأ بعد أول حركة
+                    </p>
                   </div>
                 )}
                 <div className="mt-4 p-4 bg-gradient-to-br from-primary/10 to-accent/5 rounded-lg border border-primary/20">
