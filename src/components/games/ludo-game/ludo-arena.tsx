@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { LudoBoard } from './ludo-board';
 import { LudoDice } from './ludo-dice';
+import { ExitConfirmationDialog } from '../exit-confirmation-dialog';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Trophy } from 'lucide-react';
 import Confetti from 'react-confetti';
@@ -48,6 +49,7 @@ export const LudoArena: React.FC<LudoArenaProps> = ({
   const [isRolling, setIsRolling] = useState(false);
   const [winner, setWinner] = useState<string | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [showExitDialog, setShowExitDialog] = useState(false);
 
   useEffect(() => {
     initializeMatch();
@@ -214,6 +216,48 @@ export const LudoArena: React.FC<LudoArenaProps> = ({
     }
   };
 
+  const handleExitClick = () => {
+    if (!winner) {
+      setShowExitDialog(true);
+    } else {
+      onExit();
+    }
+  };
+
+  const handleConfirmExit = async () => {
+    try {
+      const { data, error } = await supabase.rpc('handle_player_resignation', {
+        p_session_id: sessionId,
+        p_resigning_player_id: currentUserId
+      });
+
+      if (error) throw error;
+
+      const result = data as any;
+      if (result.success) {
+        toast({
+          title: 'تم الخروج',
+          description: 'تم احتساب المباراة كخسارة',
+          duration: 2000
+        });
+        setTimeout(() => onExit(), 500);
+      } else {
+        toast({
+          title: 'خطأ',
+          description: result.message || 'فشل في معالجة الخروج',
+          variant: 'destructive'
+        });
+      }
+    } catch (error) {
+      console.error('خطأ في الخروج:', error);
+      toast({
+        title: 'خطأ',
+        description: 'حدث خطأ أثناء الخروج',
+        variant: 'destructive'
+      });
+    }
+  };
+
   if (!match) {
     return <div className="text-center p-8">جاري التحميل...</div>;
   }
@@ -246,13 +290,21 @@ export const LudoArena: React.FC<LudoArenaProps> = ({
   }
 
   return (
-    <div className="min-h-screen p-4 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 dark:from-background dark:via-card/20 dark:to-background">
+    <>
+      <ExitConfirmationDialog
+        isOpen={showExitDialog}
+        onOpenChange={setShowExitDialog}
+        onConfirmExit={handleConfirmExit}
+        gameName="لودو"
+      />
+
+      <div className="min-h-screen p-4 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 dark:from-background dark:via-card/20 dark:to-background">
       <div className="max-w-7xl mx-auto">
         {/* Header - Enhanced */}
         <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
-          <Button onClick={onExit} variant="outline" className="gap-2 hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-all">
+          <Button onClick={handleExitClick} variant="outline" className="gap-2 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition-all">
             <ArrowLeft className="h-4 w-4" />
-            الخروج
+            خروج
           </Button>
           
           <div className="text-center bg-white dark:bg-card/50 px-8 py-4 rounded-2xl shadow-lg backdrop-blur-sm border border-primary/20">
@@ -336,5 +388,6 @@ export const LudoArena: React.FC<LudoArenaProps> = ({
         </div>
       </div>
     </div>
+    </>
   );
 };

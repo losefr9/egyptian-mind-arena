@@ -6,9 +6,10 @@ import { ChessTimer } from './chess-timer';
 import { CapturedPieces } from './captured-pieces';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Trophy, Users } from 'lucide-react';
+import { Trophy, Users, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { GameEndDialog } from '../game-end-dialog';
+import { ExitConfirmationDialog } from '../exit-confirmation-dialog';
 
 interface ChessArenaProps {
   sessionId: string;
@@ -38,6 +39,7 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
   const [gameEndState, setGameEndState] = useState<{ show: boolean; result: 'win' | 'lose' | 'draw'; prize: number; winnerId: string | null } | null>(null);
   const [moveCount, setMoveCount] = useState(0);
   const [gameStarted, setGameStarted] = useState(false);
+  const [showExitDialog, setShowExitDialog] = useState(false);
   const { toast } = useToast();
 
   const isMyTurn = currentTurn === currentUserId;
@@ -354,8 +356,57 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
     }
   };
 
+  const handleExitClick = () => {
+    if (!gameEndState) {
+      setShowExitDialog(true);
+    } else {
+      onGameEnd(gameEndState.winnerId);
+    }
+  };
+
+  const handleConfirmExit = async () => {
+    try {
+      const { data, error } = await supabase.rpc('handle_player_resignation', {
+        p_session_id: sessionId,
+        p_resigning_player_id: currentUserId
+      });
+
+      if (error) throw error;
+
+      const result = data as any;
+      if (result.success) {
+        toast({
+          title: 'تم الخروج',
+          description: 'تم احتساب المباراة كخسارة',
+          duration: 2000
+        });
+        setTimeout(() => onGameEnd(result.winner_id), 500);
+      } else {
+        toast({
+          title: 'خطأ',
+          description: result.message || 'فشل في معالجة الخروج',
+          variant: 'destructive'
+        });
+      }
+    } catch (error) {
+      console.error('خطأ في الخروج:', error);
+      toast({
+        title: 'خطأ',
+        description: 'حدث خطأ أثناء الخروج',
+        variant: 'destructive'
+      });
+    }
+  };
+
   return (
     <>
+      <ExitConfirmationDialog
+        isOpen={showExitDialog}
+        onOpenChange={setShowExitDialog}
+        onConfirmExit={handleConfirmExit}
+        gameName="الشطرنج"
+      />
+
       {gameEndState && (
         <GameEndDialog
           isOpen={gameEndState.show}
@@ -370,6 +421,17 @@ export const ChessArena: React.FC<ChessArenaProps> = ({
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header with improved design */}
         <Card className="p-6 bg-gradient-to-r from-card/90 to-card/70 backdrop-blur-xl border-primary/20 shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
+          <div className="flex items-center justify-between mb-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleExitClick}
+              className="gap-2 hover:bg-destructive/10 hover:text-destructive transition-all"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              خروج
+            </Button>
+          </div>
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
               <div className="p-3 bg-gradient-to-br from-primary to-primary-glow rounded-xl">

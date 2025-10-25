@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DominoBoard } from './domino-board';
 import { DominoHand } from './domino-hand';
+import { ExitConfirmationDialog } from '../exit-confirmation-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { ArrowLeft, ArrowRight, Download, Trophy } from 'lucide-react';
@@ -35,6 +36,7 @@ export const DominoArena: React.FC<DominoArenaProps> = ({
   const [gameStatus, setGameStatus] = useState('playing');
   const [player1Name, setPlayer1Name] = useState('لاعب 1');
   const [player2Name, setPlayer2Name] = useState('لاعب 2');
+  const [showExitDialog, setShowExitDialog] = useState(false);
 
   const isPlayer1 = currentUserId === player1Id;
 
@@ -225,11 +227,60 @@ export const DominoArena: React.FC<DominoArenaProps> = ({
   const canPlaceLeft = selectedPiece && canPlacePiece(selectedPiece, 'left');
   const canPlaceRight = selectedPiece && canPlacePiece(selectedPiece, 'right');
 
+  const handleExitClick = () => {
+    if (gameStatus === 'playing') {
+      setShowExitDialog(true);
+    } else {
+      onGameEnd(null);
+    }
+  };
+
+  const handleConfirmExit = async () => {
+    try {
+      const { data, error } = await supabase.rpc('handle_player_resignation', {
+        p_session_id: sessionId,
+        p_resigning_player_id: currentUserId
+      });
+
+      if (error) throw error;
+
+      const result = data as any;
+      if (result.success) {
+        toast.info('تم الخروج من المباراة - تم احتساب الخسارة');
+        setTimeout(() => onGameEnd(result.winner_id), 500);
+      } else {
+        toast.error(result.message || 'فشل في معالجة الخروج');
+      }
+    } catch (error) {
+      console.error('خطأ في الخروج:', error);
+      toast.error('حدث خطأ أثناء الخروج من المباراة');
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-card/30 p-4">
+    <>
+      <ExitConfirmationDialog
+        isOpen={showExitDialog}
+        onOpenChange={setShowExitDialog}
+        onConfirmExit={handleConfirmExit}
+        gameName="الدومينو"
+      />
+
+      <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-card/30 p-4">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Enhanced Header */}
         <Card className="bg-gradient-to-r from-card/90 via-card/80 to-card/70 backdrop-blur-xl border-primary/20 shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
+          <div className="px-6 pt-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleExitClick}
+              className="gap-2 hover:bg-destructive/10 hover:text-destructive transition-all"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              خروج
+            </Button>
+          </div>
           <CardHeader>
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div className="flex items-center gap-3">
@@ -442,5 +493,6 @@ export const DominoArena: React.FC<DominoArenaProps> = ({
         </Card>
       </div>
     </div>
+    </>
   );
 };

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { XOBoard } from './xo-board';
 import { MathQuestion } from './math-question';
+import { ExitConfirmationDialog } from '../exit-confirmation-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -40,6 +41,7 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
   const [lockedCells, setLockedCells] = useState<Set<number>>(new Set());
   const [pendingMove, setPendingMove] = useState<{cellIndex: number, symbol: string} | null>(null);
   const [savingMove, setSavingMove] = useState<boolean>(false);
+  const [showExitDialog, setShowExitDialog] = useState(false);
   const subscriptionRef = useRef<any>(null);
   const retryTimeoutRef = useRef<any>(null);
 
@@ -598,6 +600,44 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
     }
   };
 
+  const handleExitClick = () => {
+    if (gameStatus === 'playing') {
+      setShowExitDialog(true);
+    } else {
+      onExit();
+    }
+  };
+
+  const handleConfirmExit = async () => {
+    try {
+      if (selectedCell !== null) {
+        await supabase.rpc('cancel_reservation', {
+          p_game_session_id: gameSession.id,
+          p_player_id: user?.id,
+          p_cell_index: selectedCell,
+        });
+      }
+
+      const { data, error } = await supabase.rpc('handle_player_resignation', {
+        p_session_id: gameSession.id,
+        p_resigning_player_id: user?.id
+      });
+
+      if (error) throw error;
+
+      const result = data as any;
+      if (result.success) {
+        toast.info('تم الخروج من المباراة - تم احتساب الخسارة');
+        onExit();
+      } else {
+        toast.error(result.message || 'فشل في معالجة الخروج');
+      }
+    } catch (error) {
+      console.error('خطأ في الخروج:', error);
+      toast.error('حدث خطأ أثناء الخروج من المباراة');
+    }
+  };
+
   useEffect(() => {
     initializeGame();
     fetchUsernames();
@@ -630,7 +670,15 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
   }, [timeLeft, showQuestion, raceMode]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-card/30 p-4">
+    <>
+      <ExitConfirmationDialog
+        isOpen={showExitDialog}
+        onOpenChange={setShowExitDialog}
+        onConfirmExit={handleConfirmExit}
+        gameName="XO"
+      />
+
+      <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-card/30 p-4">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Enhanced Header */}
         <Card className="bg-gradient-to-r from-card/90 via-card/80 to-card/70 backdrop-blur-xl border-primary/20 shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
@@ -639,8 +687,8 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={onExit}
-                className="gap-2 hover:bg-primary/10 hover:text-primary transition-all"
+                onClick={handleExitClick}
+                className="gap-2 hover:bg-destructive/10 hover:text-destructive transition-all"
               >
                 <ArrowLeft className="w-4 h-4" />
                 خروج
@@ -802,5 +850,6 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
         </div>
       </div>
     </div>
+    </>
   );
 };
