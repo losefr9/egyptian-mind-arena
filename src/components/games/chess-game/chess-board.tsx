@@ -27,12 +27,6 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
   const [promotionDialog, setPromotionDialog] = useState<{ show: boolean; from: string; to: string } | null>(null);
 
   console.log('♟️ ChessBoard rendered - orientation:', orientation, '| isMyTurn:', isMyTurn);
-  console.log('🗺️ Board mapping test:', {
-    topLeft_0_0: getSquareName(0, 0),
-    topRight_0_7: getSquareName(0, 7),
-    bottomLeft_7_0: getSquareName(7, 0),
-    bottomRight_7_7: getSquareName(7, 7)
-  });
 
   const parseFEN = (fen: string) => {
     const board: (string | null)[][] = Array(8).fill(null).map(() => Array(8).fill(null));
@@ -57,24 +51,23 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
 
   const board = parseFEN(position);
 
-  const getBoardIndex = (displayRow: number, displayCol: number): { fenRow: number; fenCol: number } => {
+  const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+  const ranks = ['8', '7', '6', '5', '4', '3', '2', '1'];
+
+  const getSquareName = (boardRow: number, boardCol: number): string => {
     if (orientation === 'white') {
-      return { fenRow: displayRow, fenCol: displayCol };
+      return files[boardCol] + ranks[boardRow];
     } else {
-      return { fenRow: 7 - displayRow, fenCol: 7 - displayCol };
+      return files[7 - boardCol] + ranks[7 - boardRow];
     }
   };
 
-  const getPieceAt = (displayRow: number, displayCol: number): string | null => {
-    const { fenRow, fenCol } = getBoardIndex(displayRow, displayCol);
-    return board[fenRow][fenCol];
-  };
-
-  const getSquareName = (displayRow: number, displayCol: number): string => {
-    const { fenRow, fenCol } = getBoardIndex(displayRow, displayCol);
-    const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
-    const ranks = ['8', '7', '6', '5', '4', '3', '2', '1'];
-    return files[fenCol] + ranks[fenRow];
+  const getPiece = (boardRow: number, boardCol: number): string | null => {
+    if (orientation === 'white') {
+      return board[boardRow][boardCol];
+    } else {
+      return board[7 - boardRow][7 - boardCol];
+    }
   };
 
   const isPromotionMove = (from: string, to: string): boolean => {
@@ -94,7 +87,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
     }
 
     const squareName = getSquareName(row, col);
-    const piece = getPieceAt(row, col);
+    const piece = getPiece(row, col);
     const myColor = orientation === 'white' ? 'w' : 'b';
 
     console.log('🎯 Square clicked:', {
@@ -103,7 +96,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
       selectedSquare,
       isMyTurn,
       myColor,
-      highlightedSquares: highlightedSquares.length
+      orientation
     });
 
     if (selectedSquare) {
@@ -178,10 +171,10 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
     <Card className="p-2 sm:p-4 bg-gradient-to-br from-card/90 to-card/70 backdrop-blur-xl border-primary/20 shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
       <div className="aspect-square w-full max-w-[95vw] sm:max-w-[600px] mx-auto">
         <div className="grid grid-cols-8 gap-0 h-full border-2 sm:border-4 border-primary/30 rounded-lg sm:rounded-xl overflow-hidden shadow-2xl touch-none">
-          {Array.from({ length: 8 }, (_, row) =>
-            Array.from({ length: 8 }, (_, col) => {
+          {Array.from({ length: 8 }).map((_, row) =>
+            Array.from({ length: 8 }).map((_, col) => {
               const squareName = getSquareName(row, col);
-              const piece = getPieceAt(row, col);
+              const piece = getPiece(row, col);
               const isLight = isSquareLight(row, col);
               const isSelected = selectedSquare === squareName;
               const isHighlighted = highlightedSquares.includes(squareName);
@@ -193,7 +186,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
                   disabled={!isMyTurn}
                   style={{ touchAction: 'manipulation' }}
                   className={`
-                    aspect-square relative flex items-center justify-center 
+                    aspect-square relative flex items-center justify-center
                     text-2xl sm:text-4xl md:text-5xl lg:text-6xl
                     transition-all duration-200 ease-out select-none
                     ${
@@ -234,7 +227,6 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
                     </span>
                   )}
 
-                  {/* Square coordinates - hidden on very small screens */}
                   {col === 0 && (
                     <span className="hidden sm:block absolute top-0.5 left-0.5 sm:top-1 sm:left-1 text-[8px] sm:text-[10px] font-bold text-foreground/60 drop-shadow-sm pointer-events-none">
                       {squareName[1]}
@@ -246,14 +238,11 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
                     </span>
                   )}
 
-                  {/* Enhanced highlight effect for possible moves */}
                   {isHighlighted && !isSelected && (
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                       {piece ? (
-                        // حركة أسر - دائرة حمراء
                         <div className="absolute inset-0.5 sm:inset-1 border-2 sm:border-4 border-red-500 dark:border-red-400 rounded-full animate-pulse shadow-lg" />
                       ) : (
-                        // حركة عادية - نقطة خضراء
                         <div className="w-2.5 h-2.5 sm:w-4 sm:h-4 rounded-full bg-green-500 dark:bg-green-400 animate-pulse shadow-lg ring-2 ring-green-400/50" />
                       )}
                     </div>
@@ -265,7 +254,6 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
         </div>
       </div>
 
-      {/* Enhanced Turn Indicator */}
       {isMyTurn && (
         <div className="mt-3 sm:mt-4 text-center py-2 sm:py-3 bg-gradient-to-r from-primary/20 via-primary/35 to-primary/20 rounded-lg sm:rounded-xl border border-primary/50 animate-pulse">
           <span className="font-bold text-primary text-sm sm:text-lg flex items-center justify-center gap-2">
@@ -275,7 +263,6 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
         </div>
       )}
 
-      {/* Promotion Dialog */}
       <Dialog open={promotionDialog?.show || false} onOpenChange={() => setPromotionDialog(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogTitle className="text-center text-xl font-bold">اختر قطعة للترقية</DialogTitle>
