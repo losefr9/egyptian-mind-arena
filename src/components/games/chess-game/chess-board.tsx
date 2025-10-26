@@ -187,8 +187,8 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
                   style={{ touchAction: 'manipulation' }}
                   className={`
                     aspect-square relative flex items-center justify-center
-                    text-2xl sm:text-4xl md:text-5xl lg:text-6xl
-                    transition-all duration-200 ease-out select-none
+                    text-3xl sm:text-4xl md:text-5xl
+                    transition-all duration-200 ease-out select-none touch-manipulation
                     ${
                       isLight
                         ? 'bg-gradient-to-br from-amber-100 to-amber-50 dark:from-amber-900/40 dark:to-amber-800/30'

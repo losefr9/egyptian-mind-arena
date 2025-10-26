@@ -62,11 +62,11 @@ export const DominoPiece: React.FC<DominoPieceProps> = ({
         "dark:from-amber-900/20 dark:via-card dark:to-amber-800/10",
         "border-2 rounded-xl shadow-[0_4px_12px_rgba(217,119,6,0.2)] transition-all duration-300",
         "flex",
-        isHorizontal ? "w-20 h-10 sm:w-24 sm:h-12 md:w-28 md:h-14 flex-row" : "w-10 h-20 sm:w-12 sm:h-24 md:w-14 md:h-28 flex-col",
+        isHorizontal ? "w-16 h-8 sm:w-20 sm:h-10 md:w-24 md:h-12 flex-row" : "w-8 h-16 sm:w-10 sm:h-20 md:w-12 md:h-24 flex-col",
         // Selected state with golden glow
         isSelected && "ring-4 ring-amber-500 ring-offset-2 scale-110 animate-pulse border-amber-500 shadow-[0_0_30px_rgba(245,158,11,0.6)]",
         // Hover effects with golden shimmer
-        onClick && !disabled && "cursor-pointer hover:scale-105 hover:shadow-[0_8px_24px_rgba(217,119,6,0.3)] hover:border-amber-400/70 active:scale-95 hover:bg-gradient-to-br hover:from-amber-100/50 hover:via-white hover:to-amber-100/30",
+        onClick && !disabled && "cursor-pointer active:scale-95 hover:shadow-[0_8px_24px_rgba(217,119,6,0.3)] hover:border-amber-400/70 touch-manipulation",
         disabled && "opacity-40 cursor-not-allowed grayscale",
         !disabled && !isSelected && "border-amber-300/40 dark:border-amber-700/40",
         className

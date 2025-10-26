@@ -678,7 +678,7 @@ export const XORaceArena: React.FC<XORaceArenaProps> = ({ gameSession, onExit })
         gameName="XO"
       />
 
-      <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-card/30 p-4">
+      <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-card/30 p-2 sm:p-4 pb-safe">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Enhanced Header */}
         <Card className="bg-gradient-to-r from-card/90 via-card/80 to-card/70 backdrop-blur-xl border-primary/20 shadow-[0_8px_32px_rgba(0,0,0,0.12)]">

@@ -26,7 +26,7 @@ export const DominoBoard: React.FC<DominoBoardProps> = ({
   selectedPiece
 }) => {
   return (
-    <div className="relative w-full min-h-[250px] bg-gradient-to-br from-green-100 via-emerald-50 to-teal-100 dark:from-card/50 dark:via-card/40 dark:to-card/30 rounded-2xl border-4 border-primary/20 p-8 overflow-x-auto shadow-2xl">
+    <div className="relative w-full min-h-[200px] sm:min-h-[250px] bg-gradient-to-br from-green-100 via-emerald-50 to-teal-100 dark:from-card/50 dark:via-card/40 dark:to-card/30 rounded-xl sm:rounded-2xl border-2 sm:border-4 border-primary/20 p-3 sm:p-6 md:p-8 overflow-x-auto shadow-2xl touch-manipulation">
       {/* Background Pattern */}
       <div className="absolute inset-0 opacity-10 rounded-2xl overflow-hidden">
         <div className="absolute inset-0" style={{
