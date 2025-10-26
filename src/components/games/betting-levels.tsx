@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Users, ArrowRight, Trophy, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useOnlinePlayers } from '@/hooks/useOnlinePlayers';
 
 const BETTING_LEVELS = [
   { amount: 10 },
@@ -21,74 +22,27 @@ interface BettingLevelsProps {
   onBack: () => void;
 }
 
-export const BettingLevels: React.FC<BettingLevelsProps> = ({ 
-  gameName, 
+export const BettingLevels: React.FC<BettingLevelsProps> = ({
+  gameName,
   gameId,
   onLevelSelect,
-  onBack 
+  onBack
 }) => {
+  const { onlinePlayers, loading: playersLoading } = useOnlinePlayers(30000);
   const [waitingPlayers, setWaitingPlayers] = useState<{[key: number]: number}>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchWaitingPlayers();
+    const gameBetLevels = onlinePlayers.byBetLevel[gameId] || {};
 
-    // تحديث البيانات كل 5 دقائق (300000 ميلي ثانية)
-    const interval = setInterval(fetchWaitingPlayers, 300000);
+    const playerCounts: {[key: number]: number} = {};
+    BETTING_LEVELS.forEach(level => {
+      playerCounts[level.amount] = gameBetLevels[level.amount] || 0;
+    });
 
-    // إضافة مستمع للتحديثات الفورية من قاعدة البيانات
-    const channel = supabase
-      .channel(`betting-levels-${gameId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'game_sessions',
-          filter: `game_id=eq.${gameId}`
-        },
-        () => {
-          fetchWaitingPlayers();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      clearInterval(interval);
-      supabase.removeChannel(channel);
-    };
-  }, [gameId]);
-
-  const fetchWaitingPlayers = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('game_sessions')
-        .select('bet_amount')
-        .eq('game_id', gameId)
-        .eq('status', 'waiting')
-        .is('player2_id', null);
-
-      if (error) throw error;
-
-      // حساب عدد اللاعبين المنتظرين لكل مستوى
-      const playerCounts: {[key: number]: number} = {};
-      BETTING_LEVELS.forEach(level => {
-        playerCounts[level.amount] = data?.filter(session => session.bet_amount === level.amount).length || 0;
-      });
-
-      setWaitingPlayers(playerCounts);
-    } catch (error) {
-      console.error('Error fetching waiting players:', error);
-      // في حالة الخطأ، اعرض صفر لجميع المستويات
-      const emptyPlayerCounts: {[key: number]: number} = {};
-      BETTING_LEVELS.forEach(level => {
-        emptyPlayerCounts[level.amount] = 0;
-      });
-      setWaitingPlayers(emptyPlayerCounts);
-    } finally {
-      setLoading(false);
-    }
-  };
+    setWaitingPlayers(playerCounts);
+    setLoading(playersLoading);
+  }, [gameId, onlinePlayers, playersLoading]);
 
   const getEstimatedWaitTime = (playerCount: number) => {
     if (playerCount === 0) return 'فوري';

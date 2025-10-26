@@ -17,6 +17,7 @@ import { ChessArena } from '@/components/games/chess-game/chess-arena';
 import { GameSessionValidator } from '@/components/games/game-session-validator';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useOnlinePlayers } from '@/hooks/useOnlinePlayers';
 import { toast } from 'sonner';
 import { InstallAppButton } from '@/components/ui/install-app-button';
 import { GAME_IDS, GAME_NAMES } from '@/constants/games';
@@ -44,6 +45,7 @@ interface GameSession {
 
 const Games = () => {
   const { user, isLoading, isLoggedIn } = useAuth();
+  const { onlinePlayers } = useOnlinePlayers(30000);
   const [viewState, setViewState] = useState<ViewState>('games');
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [selectedBetAmount, setSelectedBetAmount] = useState<number>(0);
@@ -167,33 +169,52 @@ const Games = () => {
     }
   }, []);
 
-  const setupPresenceTracking = () => {
-    const channel = supabase.channel('online-players');
-    
-    channel
-      .on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState();
-        const count = Object.keys(state).length;
-        setOnlinePlayersCount(count);
-      })
-      .on('presence', { event: 'join' }, ({ newPresences }) => {
-        console.log('New players joined:', newPresences);
-      })
-      .on('presence', { event: 'leave' }, ({ leftPresences }) => {
-        console.log('Players left:', leftPresences);
-      })
-      .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED' && user?.id) {
-          await channel.track({
-            user_id: user.id,
-            online_at: new Date().toISOString(),
-          });
+  const setupPresenceTracking = async () => {
+    if (!user?.id) return;
+
+    try {
+      await supabase
+        .from('user_presence')
+        .upsert({
+          user_id: user.id,
+          status: 'online',
+          current_page: 'games',
+          current_game_id: null,
+          current_bet_amount: null,
+          last_seen: new Date().toISOString(),
+          session_start: new Date().toISOString()
+        }, {
+          onConflict: 'user_id'
+        });
+
+      const heartbeatInterval = setInterval(async () => {
+        if (user?.id) {
+          await supabase
+            .from('user_presence')
+            .update({
+              last_seen: new Date().toISOString(),
+              status: 'online'
+            })
+            .eq('user_id', user.id);
         }
+      }, 30000);
+
+      window.addEventListener('beforeunload', async () => {
+        await supabase
+          .from('user_presence')
+          .update({
+            status: 'offline',
+            last_seen: new Date().toISOString()
+          })
+          .eq('user_id', user.id);
       });
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+      return () => {
+        clearInterval(heartbeatInterval);
+      };
+    } catch (error) {
+      console.error('Error setting up presence tracking:', error);
+    }
   };
 
   const fetchGames = async () => {
@@ -210,21 +231,10 @@ const Games = () => {
         !game.name?.toLowerCase().includes('لودو')
       );
 
-      const gamesWithPlayers = await Promise.all(
-        filteredGames.map(async (game) => {
-          const { count } = await supabase
-            .from('game_sessions')
-            .select('*', { count: 'exact', head: true })
-            .eq('game_id', game.id)
-            .eq('status', 'waiting')
-            .is('player2_id', null);
-
-          return {
-            ...game,
-            activePlayersCount: count || 0
-          };
-        })
-      );
+      const gamesWithPlayers = filteredGames.map((game) => ({
+        ...game,
+        activePlayersCount: onlinePlayers.byGame[game.id] || 0
+      }));
 
       setGames(gamesWithPlayers);
     } catch (error) {
@@ -233,9 +243,20 @@ const Games = () => {
     }
   };
 
-  const handleGameSelect = (game: Game) => {
+  const handleGameSelect = async (game: Game) => {
     setSelectedGame(game);
     setViewState('betting');
+
+    if (user?.id) {
+      await supabase
+        .from('user_presence')
+        .update({
+          current_page: 'betting',
+          current_game_id: game.id,
+          last_seen: new Date().toISOString()
+        })
+        .eq('user_id', user.id);
+    }
   };
 
   const handleBetLevelSelect = async (amount: number) => {
@@ -243,7 +264,17 @@ const Games = () => {
 
     setSelectedBetAmount(amount);
     setIsMatchmaking(true);
-    
+
+    if (user?.id) {
+      await supabase
+        .from('user_presence')
+        .update({
+          current_bet_amount: amount,
+          last_seen: new Date().toISOString()
+        })
+        .eq('user_id', user.id);
+    }
+
     try {
       // استخدام الدالة المحسنة للماتشينق السريع
       const { data: matchResult, error: matchError } = await supabase.rpc(
@@ -541,7 +572,7 @@ const Games = () => {
                     </div>
                     <Badge variant="golden" className="text-lg px-4 py-1">
                       <Users className="h-4 w-4 mr-1" />
-                      {games.reduce((total, game) => total + (game.activePlayersCount || 0), 0)}
+                      {onlinePlayers.total}
                     </Badge>
                   </div>
                 </CardContent>

@@ -3,13 +3,19 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface OnlinePlayersCount {
   total: number;
+  browsing: number;
+  selecting: number;
+  playing: number;
   byGame: Record<string, number>;
   byBetLevel: Record<string, Record<number, number>>;
 }
 
-export const useOnlinePlayers = (refreshInterval: number = 300000) => {
+export const useOnlinePlayers = (refreshInterval: number = 30000) => {
   const [onlinePlayers, setOnlinePlayers] = useState<OnlinePlayersCount>({
     total: 0,
+    browsing: 0,
+    selecting: 0,
+    playing: 0,
     byGame: {},
     byBetLevel: {}
   });
@@ -17,45 +23,58 @@ export const useOnlinePlayers = (refreshInterval: number = 300000) => {
 
   const fetchOnlinePlayers = async () => {
     try {
-      const { count: totalOnline } = await supabase
-        .from('user_presence')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'online')
-        .gte('last_seen', new Date(Date.now() - 5 * 60 * 1000).toISOString());
+      const { data: summaryData } = await supabase
+        .from('online_players_summary')
+        .select('*')
+        .single();
 
-      const { data: presenceData } = await supabase
-        .from('user_presence')
-        .select('user_id, current_game_id, current_bet_amount, status, last_seen')
-        .eq('status', 'online')
-        .gte('last_seen', new Date(Date.now() - 5 * 60 * 1000).toISOString());
+      const { data: gameData } = await supabase
+        .from('players_per_game')
+        .select('*');
+
+      const { data: betLevelData } = await supabase
+        .from('players_per_bet_level')
+        .select('*');
 
       const byGame: Record<string, number> = {};
+      gameData?.forEach((row: any) => {
+        if (row.current_game_id) {
+          byGame[row.current_game_id] = Number(row.player_count) || 0;
+        }
+      });
+
       const byBetLevel: Record<string, Record<number, number>> = {};
-
-      presenceData?.forEach((presence) => {
-        if (presence.current_game_id) {
-          byGame[presence.current_game_id] = (byGame[presence.current_game_id] || 0) + 1;
-
-          if (!byBetLevel[presence.current_game_id]) {
-            byBetLevel[presence.current_game_id] = {};
+      betLevelData?.forEach((row: any) => {
+        if (row.current_game_id) {
+          if (!byBetLevel[row.current_game_id]) {
+            byBetLevel[row.current_game_id] = {};
           }
-
-          if (presence.current_bet_amount) {
-            const betAmount = Number(presence.current_bet_amount);
-            byBetLevel[presence.current_game_id][betAmount] =
-              (byBetLevel[presence.current_game_id][betAmount] || 0) + 1;
+          if (row.current_bet_amount) {
+            byBetLevel[row.current_game_id][Number(row.current_bet_amount)] =
+              Number(row.player_count) || 0;
           }
         }
       });
 
       setOnlinePlayers({
-        total: totalOnline || 0,
+        total: Number(summaryData?.total_online) || 0,
+        browsing: Number(summaryData?.browsing_games) || 0,
+        selecting: Number(summaryData?.selecting_bet) || 0,
+        playing: Number(summaryData?.currently_playing) || 0,
         byGame,
         byBetLevel
       });
       setLoading(false);
     } catch (error) {
       console.error('Error fetching online players:', error);
+      setOnlinePlayers({
+        total: 0,
+        browsing: 0,
+        selecting: 0,
+        playing: 0,
+        byGame: {},
+        byBetLevel: {}
+      });
       setLoading(false);
     }
   };
@@ -77,6 +96,7 @@ export const useOnlinePlayers = (refreshInterval: number = 300000) => {
           table: 'user_presence'
         },
         () => {
+          console.log('🔄 Presence updated - refreshing player counts');
           fetchOnlinePlayers();
         }
       )
