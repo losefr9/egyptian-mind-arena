@@ -460,27 +460,8 @@ const Games = () => {
               />
             </React.Suspense>
           );
-        } 
-        
-        if (sessionGameId === GAME_IDS.LUDO) {
-          console.log('▶️ [RENDER] تشغيل لعبة لودو - game_id:', GAME_IDS.LUDO);
-          const LudoArenaLazy = React.lazy(() => 
-            import('@/components/games/ludo-game/ludo-arena').then(m => ({ default: m.LudoArena }))
-          );
-          return (
-            <React.Suspense fallback={<div className="flex items-center justify-center min-h-screen">جاري التحميل...</div>}>
-              <LudoArenaLazy
-                sessionId={currentGameSession.id}
-                currentUserId={user!.id}
-                player1Id={currentGameSession.player1_id}
-                player2Id={currentGameSession.player2_id}
-                betAmount={currentGameSession.bet_amount}
-                onExit={handleExitGame}
-              />
-            </React.Suspense>
-          );
         }
-        
+
         // ❌ لعبة غير معروفة - game_id غير موجود في GAME_IDS
         console.error('❌ [RENDER] لعبة غير معروفة - game_id:', sessionGameId);
         console.error('❌ [RENDER] الألعاب المتاحة:', Object.entries(GAME_IDS));

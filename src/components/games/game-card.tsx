@@ -4,7 +4,6 @@ import { Badge } from '@/components/ui/badge';
 import { Users, Gamepad2 } from 'lucide-react';
 import xoGameHero from '@/assets/xo-game-hero.jpg';
 import dominoGameHero from '@/assets/domino-game-hero.jpg';
-import ludoGameHero from '@/assets/ludo-game-hero.jpg';
 import chessGameHero from '@/assets/chess-game-hero.jpg';
 
 interface GameCardProps {
@@ -23,7 +22,6 @@ export const GameCard: React.FC<GameCardProps> = ({ game, onClick }) => {
   const getGameImage = () => {
     if (game.image_url?.includes('xo-game-hero')) return xoGameHero;
     if (game.image_url?.includes('domino-game-hero')) return dominoGameHero;
-    if (game.image_url?.includes('ludo-game-hero')) return ludoGameHero;
     if (game.image_url?.includes('chess-game-hero')) return chessGameHero;
     return game.image_url;
   };
