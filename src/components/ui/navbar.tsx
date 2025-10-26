@@ -1,17 +1,22 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useTheme } from 'next-themes';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from './button';
-import { 
-  User, 
-  Home, 
-  Gamepad2, 
-  Wallet, 
+import {
+  User,
+  Home,
+  Gamepad2,
+  Wallet,
   CreditCard,
   LogOut,
   Trash2,
   Mail,
   Shield,
-  Users
+  Users,
+  Sun,
+  Moon,
+  Monitor
 } from 'lucide-react';
 import { InstallAppButton } from './install-app-button';
 import {
@@ -36,6 +41,8 @@ export const Navbar = ({ isLoggedIn = false, username = "مستخدم", balance 
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
+  const { theme, setTheme } = useTheme();
+  const { language, setLanguage } = useLanguage();
 
   const handlePageChange = (page: string) => {
     navigate(page === 'home' ? '/' : `/${page}`);
@@ -171,6 +178,29 @@ export const Navbar = ({ isLoggedIn = false, username = "مستخدم", balance 
                     </div>
                    </DropdownMenuLabel>
                    <DropdownMenuSeparator />
+
+                   {/* تبديل المظهر */}
+                   <DropdownMenuItem className="text-sm cursor-pointer" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
+                     {theme === 'dark' ? (
+                       <>
+                         <Sun className="mr-2 h-4 w-4" />
+                         <span>المظهر الفاتح</span>
+                       </>
+                     ) : (
+                       <>
+                         <Moon className="mr-2 h-4 w-4" />
+                         <span>المظهر الداكن</span>
+                       </>
+                     )}
+                   </DropdownMenuItem>
+
+                   {/* تبديل اللغة */}
+                   <DropdownMenuItem className="text-sm cursor-pointer" onClick={() => setLanguage(language === 'ar' ? 'en' : 'ar')}>
+                     <Monitor className="mr-2 h-4 w-4" />
+                     <span>{language === 'ar' ? 'English' : 'العربية'}</span>
+                   </DropdownMenuItem>
+                   <DropdownMenuSeparator />
+
                    {/* إظهار لوحة التحكم للأدمن فقط */}
                    {userRole === 'admin' && (
                      <>
