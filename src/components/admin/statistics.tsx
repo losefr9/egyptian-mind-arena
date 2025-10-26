@@ -97,9 +97,14 @@ export const Statistics = () => {
       const { data: games } = await supabase
         .from('games')
         .select('id, name');
-      
+
+      const filteredGames = (games || []).filter(game =>
+        !game.name?.toLowerCase().includes('ludo') &&
+        !game.name?.toLowerCase().includes('لودو')
+      );
+
       const gameStatsData: GameStats[] = [];
-      for (const game of games || []) {
+      for (const game of filteredGames) {
         const { count: matches } = await supabase
           .from('game_sessions')
           .select('*', { count: 'exact', head: true })

@@ -47,20 +47,32 @@
 
 ---
 
-## حالة قاعدة البيانات
+## حالة قاعدة البيانات وإخفاء اللعبة
 
-### ملاحظة مهمة:
-- جدول `ludo_matches` لا يزال موجوداً في قاعدة البيانات
-- لعبة لودو موجودة في جدول `games` ولكنها **غير نشطة**
-- لا حاجة لحذفها من قاعدة البيانات للحفاظ على سجل البيانات
+### التحديث الجديد (26 أكتوبر 2025):
+✅ **تم إضافة فلاتر على مستوى التطبيق لإخفاء لودو نهائياً**
 
-### إذا كنت تريد إخفاءها نهائياً:
-يمكنك تشغيل هذا الاستعلام في Supabase:
-```sql
-UPDATE games
-SET is_active = false
-WHERE name = 'لودو';
+#### 1. تصفية في صفحة الألعاب (`src/pages/Games.tsx`):
+```typescript
+const filteredGames = (gamesData || []).filter(game =>
+  !game.name?.toLowerCase().includes('ludo') &&
+  !game.name?.toLowerCase().includes('لودو')
+);
 ```
+
+#### 2. تصفية في إحصائيات لوحة التحكم (`src/components/admin/statistics.tsx`):
+```typescript
+const filteredGames = (games || []).filter(game =>
+  !game.name?.toLowerCase().includes('ludo') &&
+  !game.name?.toLowerCase().includes('لودو')
+);
+```
+
+### النتيجة:
+- ✅ لودو **لن تظهر أبداً** في قائمة الألعاب للاعبين
+- ✅ لودو **لن تظهر** في إحصائيات لوحة التحكم
+- ✅ حتى لو كانت في قاعدة البيانات، يتم تجاهلها تماماً
+- ✅ آمن ولن يسبب أخطاء
 
 ---
 

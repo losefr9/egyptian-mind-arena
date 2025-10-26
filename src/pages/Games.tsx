@@ -181,7 +181,12 @@ const Games = () => {
 
       if (error) throw error;
 
-      setGames(gamesData || []);
+      const filteredGames = (gamesData || []).filter(game =>
+        !game.name?.toLowerCase().includes('ludo') &&
+        !game.name?.toLowerCase().includes('لودو')
+      );
+
+      setGames(filteredGames);
     } catch (error) {
       console.error('Error fetching games:', error);
       setGames([]);
