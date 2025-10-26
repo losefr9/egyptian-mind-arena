@@ -36,6 +36,12 @@ export const GameCard: React.FC<GameCardProps> = ({ game, onClick }) => {
           <div className="h-12 w-12 bg-primary/10 rounded-lg flex items-center justify-center group-hover:bg-primary/20 transition-colors">
             <Gamepad2 className="h-6 w-6 text-primary" />
           </div>
+          {game.activePlayersCount !== undefined && game.activePlayersCount > 0 && (
+            <Badge variant="secondary" className="bg-green-500/10 text-green-600 border-green-500/20 animate-pulse">
+              <Users className="h-3 w-3 mr-1" />
+              {game.activePlayersCount} متصل
+            </Badge>
+          )}
         </div>
         <CardTitle className="text-xl">{game.name}</CardTitle>
         <p className="text-sm text-muted-foreground">{game.description}</p>

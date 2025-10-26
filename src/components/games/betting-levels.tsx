@@ -32,10 +32,31 @@ export const BettingLevels: React.FC<BettingLevelsProps> = ({
 
   useEffect(() => {
     fetchWaitingPlayers();
-    
-    // تحديث البيانات كل 3 ثوان
-    const interval = setInterval(fetchWaitingPlayers, 3000);
-    return () => clearInterval(interval);
+
+    // تحديث البيانات كل 5 دقائق (300000 ميلي ثانية)
+    const interval = setInterval(fetchWaitingPlayers, 300000);
+
+    // إضافة مستمع للتحديثات الفورية من قاعدة البيانات
+    const channel = supabase
+      .channel(`betting-levels-${gameId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'game_sessions',
+          filter: `game_id=eq.${gameId}`
+        },
+        () => {
+          fetchWaitingPlayers();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      clearInterval(interval);
+      supabase.removeChannel(channel);
+    };
   }, [gameId]);
 
   const fetchWaitingPlayers = async () => {

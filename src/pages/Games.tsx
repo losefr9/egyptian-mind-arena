@@ -58,6 +58,30 @@ const Games = () => {
   useEffect(() => {
     fetchGames();
     setupPresenceTracking();
+
+    const refreshInterval = setInterval(() => {
+      fetchGames();
+    }, 300000);
+
+    const gamesChannel = supabase
+      .channel('games-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'game_sessions'
+        },
+        () => {
+          fetchGames();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      clearInterval(refreshInterval);
+      supabase.removeChannel(gamesChannel);
+    };
   }, []);
 
   // ✅ CRITICAL: التحقق والمزامنة التلقائية + إعادة تحميل الصفحة للتأكد من تحديث cache
@@ -186,7 +210,23 @@ const Games = () => {
         !game.name?.toLowerCase().includes('لودو')
       );
 
-      setGames(filteredGames);
+      const gamesWithPlayers = await Promise.all(
+        filteredGames.map(async (game) => {
+          const { count } = await supabase
+            .from('game_sessions')
+            .select('*', { count: 'exact', head: true })
+            .eq('game_id', game.id)
+            .eq('status', 'waiting')
+            .is('player2_id', null);
+
+          return {
+            ...game,
+            activePlayersCount: count || 0
+          };
+        })
+      );
+
+      setGames(gamesWithPlayers);
     } catch (error) {
       console.error('Error fetching games:', error);
       setGames([]);
@@ -497,11 +537,11 @@ const Games = () => {
                         <div className="h-3 w-3 bg-success rounded-full animate-pulse" />
                         <div className="absolute inset-0 h-3 w-3 bg-success rounded-full animate-ping opacity-75" />
                       </div>
-                      <span className="font-semibold">متصل الآن:</span>
+                      <span className="font-semibold">لاعبين في انتظار المباريات:</span>
                     </div>
                     <Badge variant="golden" className="text-lg px-4 py-1">
-                      <Users className="h-4 w-4 ml-1" />
-                      {onlinePlayersCount.toLocaleString()}
+                      <Users className="h-4 w-4 mr-1" />
+                      {games.reduce((total, game) => total + (game.activePlayersCount || 0), 0)}
                     </Badge>
                   </div>
                 </CardContent>
